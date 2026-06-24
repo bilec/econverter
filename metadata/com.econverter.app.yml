@@ -1,0 +1,28 @@
+Categories:
+  - Reading
+License: GPL-3.0-only
+AuthorName: bilec
+SourceCode: https://github.com/bilec/econverter
+IssueTracker: https://github.com/bilec/econverter/issues
+
+AutoName: EbookConverter
+Description: |
+  Android ebook converter wrapping ebook-converter (Calibre fork) via Chaquopy.
+  Supports epub, mobi, azw3, docx, fb2, odt, rtf, html, and 15+ other formats.
+  No PDF support (requires poppler CLI tools unavailable on Android).
+
+RepoType: git
+Repo: https://github.com/bilec/econverter.git
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0
+    gradle:
+      - yes
+    ndk: r26b
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '1.0'
+CurrentVersionCode: 1

@@ -1,0 +1,37 @@
+# Global blacklist: ignore everything, except directories.
+*
+!*/
+
+# Per-directory whitelists.
+
+# root
+!/.gitignore
+!/LICENSE
+!/README.md
+!/build.gradle.kts
+!/settings.gradle.kts
+!/gradle.properties
+!/gradlew
+
+# gradle wrapper
+!/gradle/wrapper/gradle-wrapper.jar
+!/gradle/wrapper/gradle-wrapper.properties
+
+# app module
+!/app/build.gradle.kts
+!/app/src/main/AndroidManifest.xml
+
+# kotlin source
+!/app/src/main/java/**/*.kt
+
+# python source
+!/app/src/main/python/**/*.py
+!/app/src/main/python/**/*.xsl
+!/app/src/main/python/**/*.css
+!/app/src/main/python/**/*.html
+!/app/src/main/python/**/*.xhtml
+!/app/src/main/python/**/*.json
+!/app/src/main/python/**/*.types
+
+# fdroid metadata
+!/metadata/**/*.yml

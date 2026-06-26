@@ -22,7 +22,7 @@ Builds:
 
   - versionName: '1.0.1'
     versionCode: 2
-    commit: dc587a9726532c90f2dae1befd4ad567a48063b6
+    commit: 869d3e5c7a2bf193c86f5141350ad30e5aa74a2c
     subdir: app
     gradle:
       - yes

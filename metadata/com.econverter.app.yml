@@ -14,7 +14,7 @@ Repo: https://github.com/bilec/econverter.git
 Builds:
   - versionName: '1.0'
     versionCode: 1
-    commit: a033a8e863ac5155d38d948ba3a5590e3d871e7a
+    commit: 25f0acddc0087675afb0f8d8d7ee7fb019d7b9aa
     subdir: app
     gradle:
       - yes

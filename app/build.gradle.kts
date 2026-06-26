@@ -16,16 +16,13 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-    }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "x86_64")
-            isUniversalApk = false // ponytail: set true to also ship a fat APK
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
+
+    // ponytail: no splits — Chaquopy conflicts with splits.abi. Single APK with both archs.
 
     if (System.getenv("KEYSTORE_PATH") != null) {
         signingConfigs {

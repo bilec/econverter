@@ -14,12 +14,11 @@ Repo: https://github.com/bilec/econverter.git
 Builds:
   - versionName: '1.0'
     versionCode: 1
-    commit: c21cdf8101a5271d9dc22f463d3460ecfc1d647b
+    commit: a033a8e863ac5155d38d948ba3a5590e3d871e7a
     subdir: app
     gradle:
       - yes
     ndk: r26b
-    output: build/outputs/apk/release/app-*-release.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

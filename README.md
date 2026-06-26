@@ -2,11 +2,13 @@
 
 Android app wrapping [ebook-converter](https://github.com/gryf/ebook-converter) via [Chaquopy](https://chaquo.com/chaquopy/) (Python on Android).
 
+The KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) is ported directly from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal), as it was never included in gryf's fork.
+
 ## Supported formats
 
-**Input:** epub, docx, odt, txt, rtf, mobi, azw3, fb2, html, lrf, pdb
+**Input:** epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lit, lrf, pdb, pml, rb, rtf, snb, tcr, txt, djvu, djv, chm, cbz, cbr
 
-**Output:** epub, mobi, docx, txt, lrf, htmlz
+**Output:** epub, mobi, azw3, docx, fb2, htmlz, html, lit, lrf, oeb, pdb, pml, rb, rtf, snb, tcr, txt, txtz
 
 > **PDF input is NOT supported** — requires poppler CLI tools (pdftohtml, pdfinfo, pdftoppm) which are unavailable on Android.
 

@@ -38,12 +38,15 @@ class Logger:
         self.setup_logger()
         self._log.set_verbose = self.set_verbose
 
-    def __call__(self):
+    def __call__(self, *args, **kwargs):
         """
-        Calling this object will return configured logging.Logger object with
-        additional set_verbose() method.
+        When called with arguments, log at INFO level (calibre Log compat).
+        When called without arguments, return configured logging.Logger object.
         """
-        return self._log
+        if args:
+            self._log.info(*args, **kwargs)
+        else:
+            return self._log
 
     def set_verbose(self, verbose_level, quiet_level):
         """

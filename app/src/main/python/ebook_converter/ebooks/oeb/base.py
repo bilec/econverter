@@ -271,6 +271,8 @@ PNG_MIME = mimetypes.types_map['.png']
 SVG_MIME = mimetypes.types_map['.svg']
 BINARY_MIME = 'application/octet-stream'
 
+XHTML_NS = const.XHTML_NS
+XHTML = parse_utils.XHTML
 XHTML_CSS_NAMESPACE = '@namespace "%s";\n' % const.XHTML_NS
 
 OEB_STYLES = {CSS_MIME, OEB_CSS_MIME, 'text/x-oeb-css', 'xhtml/css'}

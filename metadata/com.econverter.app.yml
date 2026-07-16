@@ -52,6 +52,14 @@ Builds:
       - yes
     ndk: r26b
 
+  - versionName: 1.0.5
+    versionCode: 6
+    commit: 21b14c0377817c9a3aec31f7a9a72910284535d0
+    subdir: app
+    gradle:
+      - yes
+    ndk: r26b
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[\d.]+$
 CurrentVersion: 1.0.5

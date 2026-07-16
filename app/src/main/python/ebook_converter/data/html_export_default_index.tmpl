@@ -1,0 +1,42 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>${str(meta.title[0]) if meta.title else ''} - ${', '.join(str(x) for x in meta.creator if x.role == 'aut') if meta.creator else ''}</title>
+<link href="${cssLink}" type="text/css" rel="stylesheet" />
+</head>
+<body>
+
+<div class="calibreMeta">
+  <div class="calibreMetaTitle">
+    ${{if meta.title:
+        emit('<h1><a href="' + tocUrl + '">' + str(meta.title[0]) + '</a></h1>')
+    pass}}
+  </div>
+  <div class="calibreMetaAuthor">${', '.join(str(x) for x in meta.creator if x.role == 'aut') if meta.creator else ''}</div>
+</div>
+
+<div class="calibreMain">
+  <div class="calibreEbookContent">
+    ${{if has_toc:
+        emit('<div class="calibreTocIndex">')
+        emit('<h2>Table of contents</h2>')
+        emit(toc)
+        emit('</div>')
+    pass}}
+    ${{if not has_toc:
+        emit('<h2>No table of contents present</h2>')
+        emit('<div><strong><a href="' + nextLink + '">begin to read</a></strong></div>')
+    pass}}
+  </div>
+
+  ${{if nextLink:
+      emit('<div class="calibreEbNav">')
+      emit('<a href="' + nextLink + '" class="calibreANext">next page</a>')
+      emit('</div>')
+  pass}}
+</div>
+
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+${head_content}
+<link href="${cssLink}" type="text/css" rel="stylesheet" />
+</head>
+<body>
+
+<div class="calibreMeta">
+  <div class="calibreMetaTitle">
+    ${{if meta.title:
+        emit('<h1><a href="' + tocUrl + '">' + str(meta.title[0]) + '</a></h1>')
+    pass}}
+  </div>
+  <div class="calibreMetaAuthor">${', '.join(str(x) for x in meta.creator if x.role == 'aut') if meta.creator else ''}</div>
+</div>
+
+<div class="calibreMain">
+  <div class="calibreEbookContent">
+    ${{if prevLink or nextLink:
+        emit('<div class="calibreEbNavTop">')
+        if prevLink:
+            emit('<a href="' + prevLink + '" class="calibreAPrev">previous page</a>')
+        pass
+        if not prevLink:
+            emit('<a href="' + tocUrl + '" class="calibreAPrev">previous page</a>')
+        pass
+        if nextLink:
+            emit('<a href="' + nextLink + '" class="calibreANext">next page</a>')
+        pass
+        emit('</div>')
+    pass}}
+
+    ${ebookContent}
+  </div>
+
+  ${{if has_toc:
+      emit('<div class="calibreToc">')
+      emit('<h2><a href="' + tocUrl + '">Table of contents</a></h2>')
+      emit(toc())
+      emit('</div>')
+  pass}}
+
+  <div class="calibreEbNav">
+    ${{if prevLink:
+        emit('<a href="' + prevLink + '" class="calibreAPrev">previous page</a>')
+    pass}}
+    ${{if not prevLink:
+        emit('<a href="' + tocUrl + '" class="calibreAPrev">previous page</a>')
+    pass}}
+    <a href="${tocUrl}" class="calibreAHome">start</a>
+    ${{if nextLink:
+        emit('<a href="' + nextLink + '" class="calibreANext">next page</a>')
+    pass}}
+  </div>
+</div>
+
+</body>
+</html>

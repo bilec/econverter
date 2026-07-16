@@ -31,6 +31,7 @@
 !/app/src/main/python/**/*.py
 !/app/src/main/python/**/*.xsl
 !/app/src/main/python/**/*.css
+!/app/src/main/python/**/*.tmpl
 !/app/src/main/python/**/*.html
 !/app/src/main/python/**/*.xhtml
 !/app/src/main/python/**/*.json

@@ -85,9 +85,8 @@ class FB2Input(InputFormatPlugin):
             css = re.sub(r'name\s*=\s*', 'class=', css)
         self.extract_embedded_content(doc)
         log.debug('Converting XML to HTML...')
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/fb2.xsl') as f:
-            ss = f.read()
+        ss = (importlib.resources.files('ebook_converter') /
+                  'data/fb2.xsl').read_text()
         ss = ss.replace("__FB_NS__", fb_ns)
         if options.no_inline_fb2_toc:
             log.info('Disabling generation of inline FB2 TOC')

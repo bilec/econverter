@@ -590,8 +590,8 @@ def exec_tweaks(path):
 
 
 def default_tweaks_raw():
-    return str(importlib.resources.files('ebook_converter') /
-               'data/default_tweaks.py')
+    return (importlib.resources.files('ebook_converter') /
+            'data/default_tweaks.py').read_bytes()
 
 
 def read_tweaks():

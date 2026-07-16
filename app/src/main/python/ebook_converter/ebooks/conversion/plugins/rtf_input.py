@@ -288,9 +288,9 @@ class RTFInput(InputFormatPlugin):
 
         self.log.info('Converting XML to HTML...')
         inline_class = InlineClass(self.log)
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/rtf.xsl') as fobj:
-            styledoc = etree.fromstring(fobj.read())
+        styledoc = etree.fromstring(
+            (importlib.resources.files('ebook_converter') /
+             'data/rtf.xsl').read_bytes())
         extensions = {('calibre', 'inline-class'): inline_class}
         transform = etree.XSLT(styledoc, extensions=extensions)
         result = transform(doc)

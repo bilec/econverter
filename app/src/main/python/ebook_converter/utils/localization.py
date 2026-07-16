@@ -39,9 +39,8 @@ def _load_iso639():
     # excerpt form Calibre transform code which is executed during Calibre
     # build).
     if _iso639 is None:
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/iso_639-3.json', 'rb') as f:
-            root = json.load(f)
+        root = json.loads((importlib.resources.files('ebook_converter') /
+                  'data/iso_639-3.json').read_text(encoding='utf-8'))
 
         entries = root['639-3']
         by_2 = {}

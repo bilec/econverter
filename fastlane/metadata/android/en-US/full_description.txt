@@ -2,8 +2,8 @@ EbookConverter wraps gryf/ebook-converter (a Calibre fork) to run natively on An
 
 Features:
 - Convert between 20+ ebook formats directly on your phone
-- Input: epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lit, lrf, pdb, pml, rb, rtf, snb, tcr, txt, djvu, chm
-- Output: epub, mobi, azw3, docx, fb2, htmlz, html, lit, lrf, oeb, pdb, pml, rb, rtf, snb, tcr, txt, txtz
+- Input: epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, djvu, chm, cbz, cbr
+- Output: epub, mobi, azw3, docx, fb2, html, htmlz, lrf, oeb, txt, txtz
 - Output profiles for Kindle, Kobo, Nook, iPad, and generic e-ink devices
 - Metadata editing (title, authors, publisher)
 - Font size and margin controls

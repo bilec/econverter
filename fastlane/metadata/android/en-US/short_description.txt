@@ -1,1 +1,1 @@
-Android ebook converter — 20+ input, 18 output formats. No Calibre needed.
+Android ebook converter — epub, mobi, azw3, docx and more. No Calibre needed.

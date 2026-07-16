@@ -38,11 +38,11 @@ class ConverterViewModel : ViewModel() {
     private var internalInputFile: File? = null
 
     // ponytail: PDF excluded — needs poppler (input) and PyQt5 (output), unavailable on Android
-    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lit", "lrf", "pdb", "pml", "rb", "rtf", "snb", "tcr", "txt", "djvu", "djv", "chm", "cbz", "cbr")
+    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "djvu", "djv", "chm", "cbz", "cbr")
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
-    val outputFormats = listOf("epub", "mobi", "azw3", "docx", "fb2", "htmlz", "html", "lit", "lrf", "oeb", "pdb", "pml", "rb", "rtf", "snb", "tcr", "txt", "txtz")
+    val outputFormats = listOf("epub", "mobi", "azw3", "docx", "fb2", "html", "htmlz", "lrf", "oeb", "txt", "txtz")
 
     fun isInputSupported(fileName: String): Boolean {
         val ext = fileName.substringAfterLast(".", "").lowercase()
@@ -67,6 +67,22 @@ class ConverterViewModel : ViewModel() {
             if (result.startsWith("Done")) {
                 pendingSave = true
             }
+        }
+    }
+
+    fun checkDeps() {
+        viewModelScope.launch {
+            status = "Checking dependencies..."
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val py = Python.getInstance()
+                    val converter = py.getModule("converter")
+                    converter.callAttr("check_deps_str").toJava(String::class.java)
+                } catch (e: Exception) {
+                    "Error: ${e.message}"
+                }
+            }
+            status = result
         }
     }
 

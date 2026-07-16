@@ -128,7 +128,7 @@ class TXT2TXTZ(FileTypePlugin):
             return path_to_ebook
 
 
-plugins += [HTML2ZIP, PML2PMLZ, TXT2TXTZ, ArchiveExtract, KPFExtract]
+plugins += [HTML2ZIP, TXT2TXTZ, ArchiveExtract, KPFExtract]
 # }}}
 
 # Metadata reader plugins {{{
@@ -618,40 +618,26 @@ from ebook_converter.ebooks.conversion.plugins.epub_input import EPUBInput
 from ebook_converter.ebooks.conversion.plugins.fb2_input import FB2Input
 from ebook_converter.ebooks.conversion.plugins.html_input import HTMLInput
 from ebook_converter.ebooks.conversion.plugins.htmlz_input import HTMLZInput
-from ebook_converter.ebooks.conversion.plugins.lit_input import LITInput
 from ebook_converter.ebooks.conversion.plugins.mobi_input import MOBIInput
 from ebook_converter.ebooks.conversion.plugins.odt_input import ODTInput
 from ebook_converter.ebooks.conversion.plugins.pdb_input import PDBInput
 from ebook_converter.ebooks.conversion.plugins.azw4_input import AZW4Input
 from ebook_converter.ebooks.conversion.plugins.pdf_input import PDFInput
-from ebook_converter.ebooks.conversion.plugins.pml_input import PMLInput
-from ebook_converter.ebooks.conversion.plugins.rb_input import RBInput
-from ebook_converter.ebooks.conversion.plugins.recipe_input import RecipeInput
 from ebook_converter.ebooks.conversion.plugins.rtf_input import RTFInput
-from ebook_converter.ebooks.conversion.plugins.tcr_input import TCRInput
 from ebook_converter.ebooks.conversion.plugins.txt_input import TXTInput
 from ebook_converter.ebooks.conversion.plugins.lrf_input import LRFInput
 from ebook_converter.ebooks.conversion.plugins.chm_input import CHMInput
-from ebook_converter.ebooks.conversion.plugins.snb_input import SNBInput
 from ebook_converter.ebooks.conversion.plugins.docx_input import DOCXInput
 
 from ebook_converter.ebooks.conversion.plugins.epub_output import EPUBOutput
 from ebook_converter.ebooks.conversion.plugins.fb2_output import FB2Output
-from ebook_converter.ebooks.conversion.plugins.lit_output import LITOutput
 from ebook_converter.ebooks.conversion.plugins.lrf_output import LRFOutput
 from ebook_converter.ebooks.conversion.plugins.mobi_output import (MOBIOutput,
         AZW3Output)
 from ebook_converter.ebooks.conversion.plugins.oeb_output import OEBOutput
-from ebook_converter.ebooks.conversion.plugins.pdb_output import PDBOutput
-from ebook_converter.ebooks.conversion.plugins.pdf_output import PDFOutput
-from ebook_converter.ebooks.conversion.plugins.pml_output import PMLOutput
-from ebook_converter.ebooks.conversion.plugins.rb_output import RBOutput
-from ebook_converter.ebooks.conversion.plugins.rtf_output import RTFOutput
-from ebook_converter.ebooks.conversion.plugins.tcr_output import TCROutput
 from ebook_converter.ebooks.conversion.plugins.txt_output import TXTOutput, TXTZOutput
 from ebook_converter.ebooks.conversion.plugins.html_output import HTMLOutput
 from ebook_converter.ebooks.conversion.plugins.htmlz_output import HTMLZOutput
-from ebook_converter.ebooks.conversion.plugins.snb_output import SNBOutput
 from ebook_converter.ebooks.conversion.plugins.docx_output import DOCXOutput
 
 plugins += [
@@ -661,42 +647,28 @@ plugins += [
     FB2Input,
     HTMLInput,
     HTMLZInput,
-    LITInput,
     MOBIInput,
     ODTInput,
     PDBInput,
     AZW4Input,
     PDFInput,
-    PMLInput,
-    RBInput,
-    RecipeInput,
     RTFInput,
-    TCRInput,
     TXTInput,
     LRFInput,
     CHMInput,
-    SNBInput,
     DOCXInput,
 ]
 plugins += [
     EPUBOutput,
     DOCXOutput,
     FB2Output,
-    LITOutput,
     LRFOutput,
     MOBIOutput, AZW3Output,
     OEBOutput,
-    PDBOutput,
-    PDFOutput,
-    PMLOutput,
-    RBOutput,
-    RTFOutput,
-    TCROutput,
     TXTOutput,
     TXTZOutput,
     HTMLOutput,
     HTMLZOutput,
-    SNBOutput,
 ]
 # }}}
 

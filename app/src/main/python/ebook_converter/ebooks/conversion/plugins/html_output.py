@@ -1,4 +1,3 @@
-import importlib.resources
 import os
 import re
 import shutil
@@ -82,35 +81,32 @@ class HTMLOutput(OutputFormatPlugin):
                 xml_declaration=False)
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
+        import importlib.resources
         from lxml import etree
         from ebook_converter.utils import zipfile
         from templite import Templite
-        from ebook_converter.ebooks.html.meta import EasyMeta
 
         # read template files
         if opts.template_html_index is not None:
             with open(opts.template_html_index, 'rb') as f:
                 template_html_index_data = f.read()
         else:
-            with open(importlib.resources.files('ebook_converter') /
-                      'data/html_export_default_index.tmpl') as fobj:
-                template_html_index_data = fobj.read().decode()
+            template_html_index_data = (importlib.resources.files('ebook_converter') /
+                      'data/html_export_default_index.tmpl').read_bytes()
 
         if opts.template_html is not None:
             with open(opts.template_html, 'rb') as f:
                 template_html_data = f.read()
         else:
-            with open(importlib.resources.files('ebook_converter') /
-                      'data/html_export_default.tmpl') as fobj:
-                template_html_data = fobj.read().decode()
+            template_html_data = (importlib.resources.files('ebook_converter') /
+                      'data/html_export_default.tmpl').read_bytes()
 
         if opts.template_css is not None:
             with open(opts.template_css, 'rb') as f:
                 template_css_data = f.read()
         else:
-            with open(importlib.resources.files('ebook_converter') /
-                      'data/html_export_default.css') as fobj:
-                template_css_data = fobj.read().decode()
+            template_css_data = (importlib.resources.files('ebook_converter') /
+                      'data/html_export_default.css').read_bytes()
 
         template_html_index_data = template_html_index_data.decode('utf-8')
         template_html_data = template_html_data.decode('utf-8')
@@ -118,7 +114,7 @@ class HTMLOutput(OutputFormatPlugin):
 
         self.log  = log
         self.opts = opts
-        meta = EasyMeta(oeb_book.metadata)
+        meta = oeb_book.metadata
 
         tempdir = os.path.realpath(PersistentTemporaryDirectory())
         output_file = os.path.join(tempdir,

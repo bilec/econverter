@@ -16,9 +16,8 @@ ccodes, ccodemap, country_names = None, None, None
 def get_codes():
     global ccodes, ccodemap, country_names
     if ccodes is None:
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/iso_3166-1.json', 'rb') as f:
-            db = json.load(f)
+        db = json.loads((importlib.resources.files('ebook_converter') /
+                  'data/iso_3166-1.json').read_text(encoding='utf-8'))
         codes = set()
         three_map = {}
         name_map = {}

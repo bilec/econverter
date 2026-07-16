@@ -52,10 +52,10 @@ class LRFInput(InputFormatPlugin):
 
         self.log.info('Converting XML to HTML...')
 
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/lrf.xsl') as fobj:
-            # TODO(gryf): change this nonsense to etree.parse() instead.
-            styledoc = etree.fromstring(fobj.read())
+        # TODO(gryf): change this nonsense to etree.parse() instead.
+        styledoc = etree.fromstring(
+            (importlib.resources.files('ebook_converter') /
+             'data/lrf.xsl').read_bytes())
         media_type = MediaType()
         styles = Styles()
         text_block = TextBlock(styles, char_button_map, plot_map, log)

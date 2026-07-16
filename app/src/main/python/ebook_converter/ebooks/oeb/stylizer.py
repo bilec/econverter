@@ -34,9 +34,8 @@ _html_css_stylesheet = None
 def html_css_stylesheet():
     global _html_css_stylesheet
     if _html_css_stylesheet is None:
-        with open(importlib.resources.files('ebook_converter') /
-                  'data/html.css', 'rb') as f:
-            html_css = f.read().decode('utf-8')
+        html_css = (importlib.resources.files('ebook_converter') /
+                  'data/html.css').read_text(encoding='utf-8')
         _html_css_stylesheet = parseString(html_css, validate=False)
     return _html_css_stylesheet
 

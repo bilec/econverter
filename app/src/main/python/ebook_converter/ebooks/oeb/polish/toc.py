@@ -719,9 +719,9 @@ def commit_nav_toc(container, toc, lang=None, landmarks=None,
         if previous_nav is not None:
             root = previous_nav[1]
         else:
-            with open(importlib.resources.file('ebook_converter') /
-                      'data/new_nav.html') as fobj:
-                root = container.parse_xhtml(fobj.read())
+            root = container.parse_xhtml(
+                (importlib.resources.files('ebook_converter') /
+                 'data/new_nav.html').read_text())
         container.replace(tocname, root)
     else:
         root = container.parsed(tocname)
@@ -873,8 +873,8 @@ def toc_to_html(toc, container, toc_name, title, lang=None):
 
     E = ElementMaker(namespace=const.XHTML_NS, nsmap={None: const.XHTML_NS})
     # TODO(gryf): revisit lack of css.
-    css_f = str(importlib.resources.files('ebook_converter') /
-                'data/inline_toc_styles.css')
+    css_f = (importlib.resources.files('ebook_converter') /
+             'data/inline_toc_styles.css').read_text()
     html = E.html(E.head(E.title(title),
                          E.style(css_f, type='text/css')),
                   E.body(E.h2(title), E.ul(),

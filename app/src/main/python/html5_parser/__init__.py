@@ -4,7 +4,7 @@ html5-parser requires native compilation which Chaquopy can't do.
 This provides the same parse() interface using lxml's HTML parser.
 """
 # ponytail: shim replaces native html5-parser; upgrade if parsing edge cases appear
-from lxml import html, etree
+from lxml import html
 
 
 def parse(markup, treebuilder='lxml', namespace_elements=False,

@@ -194,7 +194,7 @@ private fun FormatDropdown(label: String, value: String, options: List<String>, 
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor(),
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->

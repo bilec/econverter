@@ -8,10 +8,14 @@
 !/.gitignore
 !/LICENSE
 !/README.md
+!/AGENTS.md
+!/CODEBASE_MAP.md
 !/build.gradle.kts
 !/settings.gradle.kts
 !/gradle.properties
 !/gradlew
+!/pyproject.toml
+!/uv.lock
 
 # gradle wrapper
 !/gradle/wrapper/gradle-wrapper.jar

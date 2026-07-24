@@ -1,0 +1,44 @@
+[project]
+name = "econverter"
+version = "1.0.7"
+description = "E-book converter Python runtime"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.9.3",
+    "css-parser>=1.0.6",
+    "filelock>=3.0.12",
+    "html2text>=2020.1.16",
+    "lxml>=4.9.0",
+    "odfpy>=1.4.1",
+    "pillow>=8.0.1",
+    "python-dateutil>=2.8.1",
+    "reportlab>=4.0",
+    "svglib>=0.9.3",
+    "tinycss>=0.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["app/src/main/python"]
+testpaths = ["app/src/main/python/tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    "app/src/main/python/ebook_converter",
+    "app/src/main/python/html5_parser",
+    "app/src/main/python/msgpack",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []

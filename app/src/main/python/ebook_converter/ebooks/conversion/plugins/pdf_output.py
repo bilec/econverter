@@ -162,12 +162,13 @@ class PDFOutput(OutputFormatPlugin):
         self.oeb = oeb_book
         self.input_plugin, self.opts, self.log = input_plugin, opts, log
         self.output_path = output_path
-        from ebook_converter.ebooks.oeb.base import OPF, OPF2_NS
+        from ebook_converter import constants as const
+        from ebook_converter.ebooks.oeb.base import tag as oeb_tag
         from lxml import etree
         from io import BytesIO
-        package = etree.Element(OPF('package'),
+        package = etree.Element(oeb_tag('opf', 'package'),
             attrib={'version': '2.0', 'unique-identifier': 'dummy'},
-            nsmap={None: OPF2_NS})
+            nsmap={None: const.OPF2_NS})
         from ebook_converter.ebooks.metadata.opf2 import OPF
         self.oeb.metadata.to_opf2(package)
         self.metadata = OPF(BytesIO(etree.tostring(package))).to_book_metadata()

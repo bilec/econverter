@@ -329,7 +329,7 @@ def get_nav_landmarks(container):
     nav = find_existing_nav_toc(container)
     if nav and container.has_name(nav):
         root = container.parsed(nav)
-        et = base('epub', 'type')
+        et = base.tag('epub', 'type')
         for elem in root.iterdescendants(base.tag('xhtml', 'nav')):
             if elem.get(et) == 'landmarks':
                 for li in elem.iterdescendants(base.tag('xhtml', 'li')):
@@ -683,7 +683,7 @@ def commit_ncx_toc(container, toc, lang=None, uid=None):
 
 
 def ensure_single_nav_of_type(root, ntype='toc'):
-    et = base('epub', 'type')
+    et = base.tag('epub', 'type')
     navs = [n for n in root.iterdescendants(base.tag('xhtml', 'nav'))
             if n.get(et) == ntype]
     for x in navs[1:]:

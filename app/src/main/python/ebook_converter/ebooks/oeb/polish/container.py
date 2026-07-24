@@ -31,7 +31,6 @@ from ebook_converter.ebooks.metadata.opf3 import (
 from ebook_converter.ebooks.metadata.utils import parse_opf_version
 from ebook_converter.ebooks.mobi import MobiError
 from ebook_converter.ebooks.mobi.reader.headers import MetadataHeader
-from ebook_converter.ebooks.mobi.tweak import set_cover
 from ebook_converter.ebooks.oeb import base as oeb_base
 from ebook_converter.ebooks.oeb.parse_utils import NotHTML, parse_html
 from ebook_converter.ebooks.oeb.polish.errors import DRMError, InvalidBook
@@ -42,7 +41,6 @@ from ebook_converter.ebooks.oeb.polish.utils import (
 from ebook_converter.ptempfile import PersistentTemporaryDirectory, PersistentTemporaryFile
 from ebook_converter.utils import directory
 from ebook_converter.utils.filenames import hardlink_file, nlinks_file
-from ebook_converter.utils.ipc.simple_worker import WorkerError, fork_job
 from ebook_converter import logging
 from ebook_converter.utils.zipfile import ZipFile
 
@@ -526,7 +524,7 @@ class Container(ContainerBase):  # {{{
 
     def opf_xpath(self, expr):
         ' Convenience method to evaluate an XPath expression on the OPF file, has the opf: and dc: namespace prefixes pre-defined. '
-        return self.opf.xpath(expr, namespaces=oeb_base.tag('opf', 'namespaces'))
+        return self.opf.xpath(expr, namespaces=const.OPF_NAMESPACES)
 
     def has_name(self, name):
         ''' Return True iff a file with the same canonical name as that specified exists. Unlike :meth:`exists` this method is always case-sensitive. '''
@@ -990,7 +988,7 @@ class Container(ContainerBase):  # {{{
         if name == self.opf_name and root.nsmap.get(None) == const.OPF2_NS:
             # Needed as I can't get lxml to output opf:role and
             # not output <opf:metadata> as well
-            data = re.sub(br'(<[/]{0,1})opf:', r'\1', data)
+            data = re.sub(br'(<[/]{0,1})opf:', rb'\1', data)
         return data
 
     def commit_item(self, name, keep_parsed=False):
@@ -1404,6 +1402,7 @@ def do_explode(path, dest):
 
 def opf_to_azw3(opf, outpath, container):
     from ebook_converter.ebooks.conversion.plumber import Plumber, create_oebbook
+    from ebook_converter.ebooks.mobi.tweak import set_cover
 
     class Item(oeb_base.Manifest.Item):
 
@@ -1478,6 +1477,7 @@ class AZW3Container(Container):
                                   'files that contain only KF8 data.')
 
         try:
+            from ebook_converter.utils.ipc.simple_worker import WorkerError, fork_job
             opf_path, obfuscated_fonts = fork_job(
             'ebook_converter.ebooks.oeb.polish.container', 'do_explode',
             args=(pathtoazw3, tdir), no_output=True)['result']

@@ -51,13 +51,13 @@ def return_raster_image(path):
 
 
 def extract_cover_from_embedded_svg(html, base, log):
-    from ebook_converter.ebooks.oeb.base import XPath, SVG, XLINK
+    from ebook_converter.ebooks.oeb.base import XPath, tag as oeb_tag
     root = etree.fromstring(html)
 
     svg = XPath('//svg:svg')(root)
-    if len(svg) == 1 and len(svg[0]) == 1 and svg[0][0].tag == SVG('image'):
+    if len(svg) == 1 and len(svg[0]) == 1 and svg[0][0].tag == oeb_tag('svg', 'image'):
         image = svg[0][0]
-        href = image.get(XLINK('href'), None)
+        href = image.get(oeb_tag('xlink', 'href'), None)
         if href:
             path = os.path.join(base, *href.split('/'))
             return return_raster_image(path)
@@ -92,7 +92,7 @@ def extract_calibre_cover(raw, base, log):
 
 
 def render_html_svg_workaround(path_to_html, log, width=590, height=750):
-    from ebook_converter.ebooks.oeb.base import SVG_NS
+    from ebook_converter.constants import SVG_NS
     with open(path_to_html, 'rb') as f:
         raw = f.read()
     raw = xml_to_unicode(raw, strip_encoding_pats=True)[0]

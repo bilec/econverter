@@ -137,7 +137,8 @@ class PMLInput(InputFormatPlugin):
         return os.path.join(os.getcwd(), 'metadata.opf')
 
     def postprocess_book(self, oeb, opts, log):
-        from ebook_converter.ebooks.oeb.base import XHTML, barename
+        from ebook_converter.ebooks.oeb.base import XHTML
+        from ebook_converter.ebooks.oeb.parse_utils import barename
         for item in oeb.spine:
             if hasattr(item.data, 'xpath'):
                 for heading in item.data.iterdescendants(*map(XHTML, 'h1 h2 h3 h4 h5 h6'.split())):

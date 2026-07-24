@@ -7,7 +7,8 @@ from functools import partial
 
 from ebook_converter import constants as const
 from ebook_converter.ebooks.htmlz.oeb2html import OEB2HTML
-from ebook_converter.ebooks.oeb.base import XHTML, barename, namespace, rewrite_links
+from ebook_converter.ebooks.oeb.base import XHTML, rewrite_links
+from ebook_converter.ebooks.oeb.parse_utils import barename, namespace
 from ebook_converter.ebooks.oeb.stylizer import Stylizer
 
 

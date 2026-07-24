@@ -164,7 +164,7 @@ class MergeMetadata(object):
         return id
 
     def remove_old_cover(self, cover_item, new_cover_href=None):
-        from ebook_converter.ebooks.oeb.base import XPath, XLINK
+        from ebook_converter.ebooks.oeb.base import XPath, tag as oeb_tag
         from lxml import etree
 
         self.oeb.manifest.remove(cover_item)
@@ -179,7 +179,7 @@ class MergeMetadata(object):
                 images = ()
             removed = False
             for img in images:
-                href = img.get('src') or img.get(XLINK('href'))
+                href = img.get('src') or img.get(oeb_tag('xlink', 'href'))
                 try:
                     href = item.abshref(href)
                 except Exception:
@@ -188,7 +188,7 @@ class MergeMetadata(object):
                     if new_cover_href is not None:
                         replacement_href = item.relhref(new_cover_href)
                         attr = ('src' if img.tag.endswith('img')
-                                else XLINK('href'))
+                                else oeb_tag('xlink', 'href'))
                         img.set(attr, replacement_href)
                     else:
                         p = img.getparent()

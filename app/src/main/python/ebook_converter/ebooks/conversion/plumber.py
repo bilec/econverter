@@ -1,5 +1,6 @@
 import functools
 import json
+import numbers
 import os
 import pprint
 import shutil
@@ -835,6 +836,15 @@ OptionRecommendation(name='search_replace',
         for name, val, level in recommendations:
             rec = self.get_option_by_name(name)
             if rec is not None and rec.level <= level and rec.level < rec.HIGH:
+                if (isinstance(val, str) and
+                        isinstance(rec.recommended_value, numbers.Number) and
+                        not isinstance(rec.recommended_value, bool)):
+                    # CLI/UI values arrive as strings; coerce to match the option's numeric type.
+                    try:
+                        val = type(rec.recommended_value)(val)
+                    except (TypeError, ValueError):
+                        self.log.error('Invalid value for %r: %r, ignoring', name, val)
+                        continue
                 changed = not eq(name, rec.recommended_value, val)
                 rec.recommended_value = val
                 rec.level = level

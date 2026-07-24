@@ -5,6 +5,7 @@ must be coerced to match numeric option defaults, not crash on comparison.
 Run:  python -m pytest tests/ -v
   or: python -m unittest tests.test_converter_extra_args -v
 """
+
 import os
 import shutil
 import tempfile
@@ -18,8 +19,8 @@ class TestConverterExtraArgs(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._tmpdir = tempfile.mkdtemp(prefix='econverter_test_')
-        cls._epub = os.path.join(cls._tmpdir, 'test.epub')
+        cls._tmpdir = tempfile.mkdtemp(prefix="econverter_test_")
+        cls._epub = os.path.join(cls._tmpdir, "test.epub")
         _make_minimal_epub(cls._epub)
 
     @classmethod
@@ -27,7 +28,7 @@ class TestConverterExtraArgs(unittest.TestCase):
         shutil.rmtree(cls._tmpdir, ignore_errors=True)
 
     def _assert_converted(self, result, out_path):
-        self.assertTrue(result['success'], result.get('message'))
+        self.assertTrue(result["success"], result.get("message"))
         self.assertTrue(os.path.isfile(out_path))
         self.assertGreater(os.path.getsize(out_path), 0)
 
@@ -35,22 +36,40 @@ class TestConverterExtraArgs(unittest.TestCase):
         """Used to raise: TypeError: '<' not supported between 'str' and 'float'."""
         import converter
 
-        out_path = os.path.join(self._tmpdir, 'base_font_size.epub')
-        result = converter.convert(self._epub, out_path, '--base-font-size', '12')
+        out_path = os.path.join(self._tmpdir, "base_font_size.epub")
+        result = converter.convert(self._epub, out_path, "--base-font-size", "12")
         self._assert_converted(result, out_path)
 
     def test_margin_string_args_do_not_crash(self):
         """Margins default to float(5.0); string values must be coerced too."""
         import converter
 
-        out_path = os.path.join(self._tmpdir, 'margins.epub')
+        out_path = os.path.join(self._tmpdir, "margins.epub")
         result = converter.convert(
-            self._epub, out_path,
-            '--margin-top', '10', '--margin-bottom', '10',
-            '--margin-left', '8', '--margin-right', '8',
+            self._epub,
+            out_path,
+            "--margin-top",
+            "10",
+            "--margin-bottom",
+            "10",
+            "--margin-left",
+            "8",
+            "--margin-right",
+            "8",
         )
         self._assert_converted(result, out_path)
 
+    def test_boolean_string_args_coerced_correctly(self):
+        """Boolean options passed as string 'false' must be coerced to False."""
+        from ebook_converter.customize.conversion import OptionRecommendation
+        from ebook_converter.ebooks.conversion.plumber import Plumber
+        from ebook_converter import logging
 
-if __name__ == '__main__':
+        out_path = os.path.join(self._tmpdir, "bool_test.mobi")
+        p = Plumber(self._epub, out_path, logging.default_log)
+        p.merge_ui_recommendations([("enable_heuristics", "false", OptionRecommendation.MED)])
+        self.assertIs(p.get_option_by_name("enable_heuristics").recommended_value, False)
+
+
+if __name__ == "__main__":
     unittest.main()

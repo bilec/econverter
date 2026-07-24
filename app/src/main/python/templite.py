@@ -16,7 +16,6 @@ import re
 
 
 class Templite:
-
     def __init__(self, text):
         self._code = self._compile(text)
 
@@ -25,10 +24,10 @@ class Templite:
 
         indent = 0
         # Split on ${...} and ${{...}}
-        tokens = re.split(r'(\$\{\{.*?\}\}|\$\{.*?\})', text, flags=re.DOTALL)
+        tokens = re.split(r"(\$\{\{.*?\}\}|\$\{.*?\})", text, flags=re.DOTALL)
 
         for token in tokens:
-            if token.startswith('${{') and token.endswith('}}'):
+            if token.startswith("${{") and token.endswith("}}"):
                 # Code block
                 code = token[3:-2]
                 for line in code.splitlines():
@@ -36,30 +35,28 @@ class Templite:
                     if not stripped:
                         continue
                     # Handle dedent for pass/end markers
-                    if stripped == 'pass':
-                        indent -= 1
+                    if stripped == "pass":
+                        indent = max(0, indent - 1)
                         continue
-                    code_lines.append('    ' * indent + stripped)
+                    code_lines.append("    " * indent + stripped)
                     # Auto-indent after colon
-                    if stripped.endswith(':'):
+                    if stripped.endswith(":"):
                         indent += 1
-            elif token.startswith('${') and token.endswith('}'):
+            elif token.startswith("${") and token.endswith("}"):
                 # Expression
                 expr = token[2:-1].strip()
-                code_lines.append('    ' * indent +
-                                  '_emit(str(%s))' % expr)
+                code_lines.append("    " * indent + "_emit(str(%s))" % expr)
             else:
                 # Literal text
                 if token:
-                    code_lines.append('    ' * indent +
-                                      '_emit(%r)' % token)
+                    code_lines.append("    " * indent + "_emit(%r)" % token)
 
-        return '\n'.join(code_lines)
+        return "\n".join(code_lines)
 
     def render(self, **namespace):
         ns = dict(namespace)
-        ns['_result'] = []
-        ns['_emit'] = ns['_result'].append
-        ns['emit'] = ns['_result'].append
+        ns["_result"] = []
+        ns["_emit"] = ns["_result"].append
+        ns["emit"] = ns["_result"].append
         exec(self._code, ns)
-        return ''.join(ns['_result'])
+        return "".join(ns["_result"])

@@ -148,7 +148,7 @@ class StylizerRules(object):
             name = prop.name
             normalizer = normalizers.get(name, None)
             if normalizer is not None:
-                style.update(normalizer(name, prop.cssValue))
+                style.update(normalizer(name, prop.propertyValue))
             elif name == 'text-align':
                 style['text-align'] = self._apply_text_align(prop.value)
             else:

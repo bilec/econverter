@@ -254,7 +254,7 @@ def now():
 
 
 def utcnow():
-    return datetime.datetime.utcnow().replace(tzinfo=_utc_tz)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=_utc_tz)
 
 
 def utcfromtimestamp(stamp):

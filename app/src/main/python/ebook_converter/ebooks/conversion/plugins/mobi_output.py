@@ -12,9 +12,7 @@ def remove_html_cover(oeb, log):
     del oeb.guide['cover']
     item = oeb.manifest.hrefs[href]
     if item.spine_position is not None:
-        log.warning('Found an HTML cover: %s', 'removing it. If you find some '
-                    'content missing from the output MOBI, it is because you '
-                    'misidentified the HTML cover in the input document',
+        log.warning('Found an HTML cover (%s): removing it from MOBI reading flow',
                     item.href)
         oeb.spine.remove(item)
         if item.media_type in OEB_DOCS:

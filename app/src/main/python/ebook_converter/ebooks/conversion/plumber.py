@@ -836,7 +836,9 @@ OptionRecommendation(name='search_replace',
         for name, val, level in recommendations:
             rec = self.get_option_by_name(name)
             if rec is not None and rec.level <= level and rec.level < rec.HIGH:
-                if (isinstance(val, str) and
+                if isinstance(val, str) and isinstance(rec.recommended_value, bool):
+                    val = val.lower() in ('true', '1', 'yes', 't')
+                elif (isinstance(val, str) and
                         isinstance(rec.recommended_value, numbers.Number) and
                         not isinstance(rec.recommended_value, bool)):
                     # CLI/UI values arrive as strings; coerce to match the option's numeric type.
@@ -938,8 +940,8 @@ OptionRecommendation(name='search_replace',
             self.log.info('Conversion options changed from defaults:')
             for rec in self.changed_options:
                 if rec.option.name not in ('username', 'password'):
-                    self.log.info(' %s', rec.option.name,
-                                  repr(rec.recommended_value))
+                    self.log.info('  %s: %r', rec.option.name,
+                                  rec.recommended_value)
         if self.opts.verbose > 1:
             self.log.debug('Resolved conversion options')
             try:

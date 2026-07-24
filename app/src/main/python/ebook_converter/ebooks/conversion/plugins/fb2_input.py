@@ -11,6 +11,7 @@ from lxml import etree
 from ebook_converter import constants as const
 from ebook_converter.customize.conversion import InputFormatPlugin
 from ebook_converter.customize.conversion import OptionRecommendation
+from ebook_converter.utils.xml_parse import safe_xml_fromstring
 
 
 FB2NS = 'http://www.gribuser.ru/xml/fictionbook/2.0'
@@ -49,9 +50,9 @@ class FB2Input(InputFormatPlugin):
         raw = xml_to_unicode(raw, strip_encoding_pats=True,
                              assume_utf8=True, resolve_entities=True)[0]
         try:
-            doc = etree.fromstring(raw)
+            doc = safe_xml_fromstring(raw)
         except etree.XMLSyntaxError:
-            doc = etree.fromstring(raw.replace('& ', '&amp;'))
+            doc = safe_xml_fromstring(raw.replace('& ', '&amp;'))
         if doc is None:
             raise ValueError('The FB2 file is not valid XML')
         doc = ensure_namespace(doc)

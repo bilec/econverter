@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Open Book Silhouette with Conversion Arrow Cutout -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M54,28 L54,78 Q40,75 22,78 L22,28 Q36,24 54,28Z M54,28 L54,78 Q68,75 86,78 L86,28 Q72,24 54,28Z M36,64 L40,60 L40,63 L68,63 L68,60 L72,64 L68,68 L68,65 L40,65 L40,68Z" />
+</vector>

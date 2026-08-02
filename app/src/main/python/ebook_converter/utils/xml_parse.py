@@ -24,7 +24,12 @@ def create_parser(recover):
 
 
 def safe_xml_fromstring(string_or_bytes, recover=True):
-    return fs(string_or_bytes, parser=create_parser(recover))
+    if not string_or_bytes:
+        return None
+    try:
+        return fs(string_or_bytes, parser=create_parser(recover))
+    except etree.XMLSyntaxError:
+        return None
 
 
 def find_tests():

@@ -117,7 +117,9 @@ class OEBReader(object):
                 data = data.replace('<dc-metadata>',
                                     '<dc-metadata xmlns:dc="'
                                     'http://purl.org/metadata/dublin_core">')
-                opf = etree.fromstring(data)
+                opf = safe_xml_fromstring(data)
+                if opf is None:
+                    raise base.OEBError('OPF document is not valid XML')
                 self.logger.warning('OPF contains invalid tours section')
 
         ns = parse_utils.namespace(opf.tag)

@@ -70,6 +70,14 @@ class TestConverterExtraArgs(unittest.TestCase):
         p.merge_ui_recommendations([("enable_heuristics", "false", OptionRecommendation.MED)])
         self.assertIs(p.get_option_by_name("enable_heuristics").recommended_value, False)
 
+    def test_xml_parse_returns_none_on_invalid_xml(self):
+        """safe_xml_fromstring should return None rather than raising XMLSyntaxError on invalid XML or empty input."""
+        from ebook_converter.utils.xml_parse import safe_xml_fromstring
+
+        self.assertIsNone(safe_xml_fromstring(""))
+        self.assertIsNone(safe_xml_fromstring(b""))
+        self.assertIsNone(safe_xml_fromstring("not xml at all"))
+
 
 if __name__ == "__main__":
     unittest.main()

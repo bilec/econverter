@@ -16,6 +16,7 @@ from ebook_converter.ebooks.metadata import MetaInformation, check_isbn
 from ebook_converter.ebooks.chardet import xml_to_unicode
 from ebook_converter import polyglot
 from ebook_converter.utils import encoding as uenc
+from ebook_converter.utils.xml_parse import safe_xml_fromstring
 
 
 NAMESPACES = {'fb2': 'http://www.gribuser.ru/xml/fictionbook/2.0',
@@ -319,7 +320,11 @@ def _parse_language(root, mi, ctx):
 
 def _get_fbroot(raw):
     raw = xml_to_unicode(raw, strip_encoding_pats=True)[0]
-    root = etree.fromstring(raw)
+    root = safe_xml_fromstring(raw)
+    if root is None:
+        root = safe_xml_fromstring(raw.replace('& ', '&amp;'))
+    if root is None:
+        raise ValueError('Corrupted or invalid FB2 XML metadata')
     return ensure_namespace(root)
 
 

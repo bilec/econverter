@@ -8,6 +8,7 @@ from ebook_converter.ebooks.oeb.polish.utils import guess_type
 from ebook_converter.spell import parse_lang_code
 from ebook_converter.utils.cleantext import clean_xml_chars
 from ebook_converter.utils.localization import lang_as_iso639_1
+from ebook_converter.utils.xml_parse import safe_xml_fromstring
 
 
 OPFVersion = namedtuple('OPFVersion', 'major minor patch')
@@ -38,8 +39,8 @@ def parse_opf(stream_or_path):
         raise ValueError('Empty file: '+getattr(stream, 'name', 'stream'))
     raw, encoding = xml_to_unicode(raw, strip_encoding_pats=True,
                                    resolve_entities=True, assume_utf8=True)
-    raw = raw[raw.find('<'):]
-    root = etree.fromstring(clean_xml_chars(raw))
+    raw = raw[max(0, raw.find('<')):]
+    root = safe_xml_fromstring(clean_xml_chars(raw))
     if root is None:
         raise ValueError('Not an OPF file')
     return root

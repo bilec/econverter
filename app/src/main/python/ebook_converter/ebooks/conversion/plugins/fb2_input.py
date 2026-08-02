@@ -49,9 +49,8 @@ class FB2Input(InputFormatPlugin):
         raw = raw.replace(b'\0', b'')
         raw = xml_to_unicode(raw, strip_encoding_pats=True,
                              assume_utf8=True, resolve_entities=True)[0]
-        try:
-            doc = safe_xml_fromstring(raw)
-        except etree.XMLSyntaxError:
+        doc = safe_xml_fromstring(raw)
+        if doc is None:
             doc = safe_xml_fromstring(raw.replace('& ', '&amp;'))
         if doc is None:
             raise ValueError('The FB2 file is not valid XML')

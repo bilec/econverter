@@ -61,9 +61,9 @@ class TestConverterExtraArgs(unittest.TestCase):
 
     def test_boolean_string_args_coerced_correctly(self):
         """Boolean options passed as string 'false' must be coerced to False."""
+        from ebook_converter import logging
         from ebook_converter.customize.conversion import OptionRecommendation
         from ebook_converter.ebooks.conversion.plumber import Plumber
-        from ebook_converter import logging
 
         out_path = os.path.join(self._tmpdir, "bool_test.mobi")
         p = Plumber(self._epub, out_path, logging.default_log)

@@ -50,4 +50,5 @@
 !/fastlane/metadata/**/*.txt
 
 # github actions
+!/.github/workflows/ci.yml
 !/.github/workflows/release.yml

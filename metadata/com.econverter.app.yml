@@ -86,7 +86,7 @@ Builds:
 
   - versionName: 1.0.9
     versionCode: 10
-    commit: d6e7f77b61137ae7780457e4e0ce2bf767c9d161
+    commit: e5e3135f273aeef906b23396469deb19df2f4351
     subdir: app
     gradle:
       - yes

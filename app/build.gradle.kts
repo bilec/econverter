@@ -22,7 +22,14 @@ android {
         }
     }
 
-    // ponytail: no splits — Chaquopy conflicts with splits.abi. Single APK with both archs.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
 
     if (System.getenv("KEYSTORE_PATH") != null) {
         signingConfigs {

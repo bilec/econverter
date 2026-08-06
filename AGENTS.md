@@ -44,7 +44,7 @@ uv run pytest
 - **Error Handling**: Exceptions caught at UI boundary returned as strings starting with `"Error: "`.
 - **Composables**: Helper composables marked `private fun`.
 - **Resource Management**: Streams closed with `.use {}`, null checks using `?:` or `?.let {}`.
-- **Imports**: No wildcard imports (`*`).
+- **Formatting**: Kotlin formatting enforced via Spotless; wildcard imports (`*`) allowed per Spotless configuration.
 
 ## Documentation Maintenance
 

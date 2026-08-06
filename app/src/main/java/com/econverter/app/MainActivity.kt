@@ -1,5 +1,6 @@
 package com.econverter.app
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -45,21 +46,32 @@ class MainActivity : ComponentActivity() {
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let {
-            val name = getFileName(context, it)
-            if (vm.isInputSupported(name)) {
-                vm.inputUri = it
-                vm.inputFileName = name
-                vm.status = ""
-            } else {
-                val ext = name.substringAfterLast(".", "")
-                vm.status = "Unsupported format: ${ext.ifEmpty { "(no extension)" }}"
+    LaunchedEffect(Unit) {
+        vm.purgeStaleTempFiles(context)
+    }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            val existingUriSet = vm.inputUris.toSet()
+            val newUris = uris.distinct().filter { it !in existingUriSet }
+
+            if (newUris.isNotEmpty()) {
+                vm.status = "Loading selection..."
+                vm.addSelectedUris(context, newUris)
             }
         }
     }
 
-    val savePicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+    val singleSavePicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+        if (uri != null) {
+            vm.saveToUri(context, uri)
+        } else {
+            vm.pendingSave = false
+            vm.status = "Save cancelled"
+        }
+    }
+
+    val dirSavePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             vm.saveToUri(context, uri)
         } else {
@@ -70,7 +82,11 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
     LaunchedEffect(vm.pendingSave) {
         if (vm.pendingSave) {
-            savePicker.launch(vm.getOutputFileName())
+            if (vm.isBatch) {
+                dirSavePicker.launch(null)
+            } else {
+                singleSavePicker.launch(vm.getOutputFileName())
+            }
         }
     }
 
@@ -86,12 +102,16 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
-            Text("Select eBook")
+            Text("Select eBooks")
         }
 
-        if (vm.inputFileName.isNotEmpty()) {
+        if (vm.inputFileNames.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Input: ${vm.inputFileName}", style = MaterialTheme.typography.bodyMedium)
+            if (vm.isBatch) {
+                Text("Input: ${vm.inputFileNames.size} eBooks selected", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Text("Input: ${vm.inputFileName}", style = MaterialTheme.typography.bodyMedium)
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -124,7 +144,12 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text("Metadata", style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.height(4.dp))
-            OptionField("Title", vm.title) { vm.title = it }
+            OptionField(
+                label = if (vm.isBatch) "Title (Disabled for batch)" else "Title",
+                value = vm.title,
+                enabled = !vm.isBatch,
+                onValueChange = { vm.title = it },
+            )
             OptionField("Authors", vm.authors) { vm.authors = it }
             OptionField("Publisher", vm.publisher) { vm.publisher = it }
             OptionField("Comments", vm.comments) { vm.comments = it }
@@ -162,7 +187,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
         Button(
             onClick = { vm.convert(context) },
-            enabled = vm.inputUri != null && !vm.isConverting,
+            enabled = vm.hasSelection && !vm.isConverting,
         ) {
             Text(if (vm.isConverting) "Converting..." else "Convert")
         }
@@ -216,8 +241,14 @@ private fun CheckboxRow(label: String, checked: Boolean, onCheckedChange: (Boole
 }
 
 @Composable
-private fun OptionField(label: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
+private fun OptionField(label: String, value: String, enabled: Boolean = true, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        enabled = enabled,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 private fun reportOnGitHub(context: android.content.Context, vm: ConverterViewModel) {
@@ -238,13 +269,19 @@ private fun reportOnGitHub(context: android.content.Context, vm: ConverterViewMo
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 }
 
-private fun getFileName(context: android.content.Context, uri: Uri): String {
-    var name = "unknown"
-    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-        val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-        if (cursor.moveToFirst() && idx >= 0) {
-            name = cursor.getString(idx)
+fun getFileName(context: android.content.Context, uri: Uri): String {
+    var name = ""
+    try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && idx >= 0) {
+                name = cursor.getString(idx) ?: ""
+            }
         }
+    } catch (_: Exception) {}
+
+    if (name.isBlank()) {
+        name = uri.lastPathSegment?.substringAfterLast("/") ?: ""
     }
-    return name
+    return name.ifBlank { "unknown" }
 }

@@ -93,6 +93,33 @@ Builds:
     output: build/outputs/apk/release/app-universal-release-unsigned.apk
     ndk: r26b
 
+  - versionName: 1.1.0
+    versionCode: 1101
+    commit: <v1.1.0 commit>
+    subdir: app
+    gradle:
+      - yes
+    output: build/outputs/apk/release/app-armeabi-v7a-release-unsigned.apk
+    ndk: r26b
+
+  - versionName: 1.1.0
+    versionCode: 1103
+    commit: <v1.1.0 commit>
+    subdir: app
+    gradle:
+      - yes
+    output: build/outputs/apk/release/app-x86_64-release-unsigned.apk
+    ndk: r26b
+
+  - versionName: 1.1.0
+    versionCode: 1104
+    commit: <v1.1.0 commit>
+    subdir: app
+    gradle:
+      - yes
+    output: build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk
+    ndk: r26b
+
 VercodeOperation:
   - 100 * %c + 1
   - 100 * %c + 3
@@ -101,5 +128,5 @@ VercodeOperation:
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[\d.]+$
 UpdateCheckData: gradle.properties|VERSION_CODE=(\d+)|gradle.properties|VERSION_NAME=(.+)
-CurrentVersion: 1.0.9
-CurrentVersionCode: 10
+CurrentVersion: 1.1.0
+CurrentVersionCode: 1104

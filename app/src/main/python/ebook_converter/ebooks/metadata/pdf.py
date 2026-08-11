@@ -28,6 +28,8 @@ def read_info(outputdir, get_cover):
     try:
         raw = subprocess.check_output([pdfinfo, '-enc', 'UTF-8', '-isodates',
                                        source_file])
+    except FileNotFoundError:
+        return ans
     except subprocess.CalledProcessError as e:
         print(f'pdfinfo errored out with return code: {e.returncode}')
         return None
@@ -52,6 +54,8 @@ def read_info(outputdir, get_cover):
     # we can no longer rely on it.
     try:
         raw = subprocess.check_output([pdfinfo, '-meta', source_file]).strip()
+    except FileNotFoundError:
+        return ans
     except subprocess.CalledProcessError as e:
         print('pdfinfo failed to read XML metadata with return code: '
               f'{e.returncode}')
@@ -67,6 +71,8 @@ def read_info(outputdir, get_cover):
         try:
             subprocess.check_call([pdftoppm, '-singlefile', '-jpeg',
                                    '-cropbox', source_file, cover_file])
+        except FileNotFoundError:
+            pass
         except subprocess.CalledProcessError as e:
             print(f'pdftoppm errored out with return code: {e.returncode}')
 

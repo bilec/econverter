@@ -1,4 +1,5 @@
 import errno
+import html
 import os
 import re
 import shutil
@@ -16,6 +17,31 @@ from ebook_converter.utils import entities
 
 def popen(cmd, **kw):
     return subprocess.Popen(cmd, **kw)
+
+
+def pypdf_to_html(output_dir, pdf_path):
+    from pypdf import PdfReader
+
+    parts = []
+    for page_number, page in enumerate(PdfReader(pdf_path).pages, 1):
+        text = page.extract_text()
+        if text:
+            parts.append(
+                '<a id="p{page_number}"></a><p>{text}</p>'.format(
+                    page_number=page_number,
+                    text=html.escape(text).replace('\n', '<br>\n'),
+                )
+            )
+
+    if not parts:
+        raise ConversionError('Could not extract text from PDF')
+
+    with open(os.path.join(output_dir, 'index.html'), 'w', encoding='utf-8') as index:
+        index.write(
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>PDF</title>'
+            '</head><body>{}</body></html>'.format(''.join(parts))
+        )
 
 
 def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
@@ -46,6 +72,10 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
             ret = subprocess.call(cmd, stderr=logf._fd, stdout=logf._fd)
         except OSError as err:
             if err.errno == errno.ENOENT:
+                if not as_xml:
+                    logf.close()
+                    pypdf_to_html(output_dir, pdf_path)
+                    return
                 raise ConversionError('Could not find pdftohtml, check it is '
                                       'in your PATH')
             else:

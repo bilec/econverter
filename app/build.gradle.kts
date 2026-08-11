@@ -76,6 +76,7 @@ chaquopy {
             install("lxml")
             install("odfpy>=1.4.1")
             install("pillow>=8.0.1")
+            install("pypdf>=5.0.0")
             install("python-dateutil>=2.8.1")
             install("reportlab>=4.0")
             install("svglib>=0.9.3")

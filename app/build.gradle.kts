@@ -1,3 +1,9 @@
+import com.android.build.api.variant.FilterConfiguration
+
+val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt).get()
+val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
+val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,8 +20,8 @@ android {
         applicationId = "com.econverter.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = baseVersionCode
+        versionName = releaseVersionName
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
@@ -61,6 +67,19 @@ android {
 
     buildFeatures {
         compose = true
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            val abiVersionCode = output.filters
+                .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier
+                ?.let(abiVersionCodes::get)
+                ?: 0
+            output.versionCode.set(baseVersionCode * 100 + abiVersionCode)
+        }
     }
 }
 

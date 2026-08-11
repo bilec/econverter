@@ -90,9 +90,16 @@ Builds:
     subdir: app
     gradle:
       - yes
+    output: build/outputs/apk/release/app-universal-release-unsigned.apk
     ndk: r26b
+
+VercodeOperation:
+  - 100 * %c + 1
+  - 100 * %c + 3
+  - 100 * %c + 4
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[\d.]+$
+UpdateCheckData: gradle.properties|VERSION_CODE=(\d+)|gradle.properties|VERSION_NAME=(.+)
 CurrentVersion: 1.0.9
 CurrentVersionCode: 10

@@ -95,7 +95,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1101
-    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
+    commit: e7c432109fdfa0be8829eac69fd9385c98d390f2
     subdir: app
     gradle:
       - yes
@@ -104,7 +104,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1103
-    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
+    commit: e7c432109fdfa0be8829eac69fd9385c98d390f2
     subdir: app
     gradle:
       - yes
@@ -113,7 +113,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1104
-    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
+    commit: e7c432109fdfa0be8829eac69fd9385c98d390f2
     subdir: app
     gradle:
       - yes
@@ -122,5 +122,10 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[\d.]+$
+VercodeOperation:
+  - '%c * 100 + 1'
+  - '%c * 100 + 3'
+  - '%c * 100 + 4'
+UpdateCheckData: gradle.properties|VERSION_CODE=(\d+)|.|VERSION_NAME=(.*)
 CurrentVersion: 1.1.0
 CurrentVersionCode: 1104

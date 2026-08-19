@@ -95,7 +95,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1101
-    commit: <v1.1.0 commit>
+    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
     subdir: app
     gradle:
       - yes
@@ -104,7 +104,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1103
-    commit: <v1.1.0 commit>
+    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
     subdir: app
     gradle:
       - yes
@@ -113,7 +113,7 @@ Builds:
 
   - versionName: 1.1.0
     versionCode: 1104
-    commit: <v1.1.0 commit>
+    commit: 1907d1e149c694a9d165ceea6956e2b35de7e2f3
     subdir: app
     gradle:
       - yes

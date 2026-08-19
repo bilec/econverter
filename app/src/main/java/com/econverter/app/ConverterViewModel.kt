@@ -160,13 +160,28 @@ class ConverterViewModel : ViewModel() {
         if (internalBatchFiles.isEmpty()) return false
         val treeId = DocumentsContract.getTreeDocumentId(dirUri)
         val parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(dirUri, treeId)
+        val childDocumentsUri = DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, treeId)
+        val existingNames = mutableSetOf<String>()
+        context.contentResolver.query(
+            childDocumentsUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                existingNames += cursor.getString(nameIndex)
+            }
+        }
         var successCount = 0
 
         for (file in internalBatchFiles) {
             val ext = file.extension
             val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            val targetName = uniqueFileName(file.name, existingNames)
             val newFileUri = try {
-                DocumentsContract.createDocument(context.contentResolver, parentDocumentUri, mimeType, file.name)
+                DocumentsContract.createDocument(context.contentResolver, parentDocumentUri, mimeType, targetName)
             } catch (e: Exception) {
                 null
             } ?: continue
@@ -174,9 +189,23 @@ class ConverterViewModel : ViewModel() {
             context.contentResolver.openOutputStream(newFileUri)?.use { output ->
                 file.inputStream().use { input -> input.copyTo(output) }
                 successCount++
+                existingNames += targetName
             }
         }
         return successCount > 0
+    }
+
+    private fun uniqueFileName(fileName: String, existingNames: Set<String>): String {
+        val extensionStart = fileName.lastIndexOf('.')
+        val baseName = if (extensionStart > 0) fileName.substring(0, extensionStart) else fileName
+        val extension = if (extensionStart > 0) fileName.substring(extensionStart) else ""
+        var index = 1
+        var candidate = fileName
+        while (candidate in existingNames) {
+            candidate = "$baseName($index)$extension"
+            index++
+        }
+        return candidate
     }
 
     private fun cleanup() {

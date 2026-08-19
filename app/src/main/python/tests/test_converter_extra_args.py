@@ -17,6 +17,14 @@ from tests.test_convert_all_formats import _make_minimal_epub
 class TestConverterExtraArgs(unittest.TestCase):
     """converter.convert() with string-valued numeric extra args."""
 
+    def test_remove_text_lines_become_search_patterns(self):
+        import converter
+
+        options = converter._parse_extra_args(("--remove-text", "-a II E-\nChapter \\d+"))
+
+        self.assertEqual(options["sr1_search"], r"(?:-a II E-|Chapter \d+)")
+        self.assertEqual(options["sr1_replace"], "")
+
     @classmethod
     def setUpClass(cls):
         cls._tmpdir = tempfile.mkdtemp(prefix="econverter_test_")

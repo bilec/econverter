@@ -217,7 +217,7 @@ def parse_html(data, log=None, decoder=None, preprocessor=None,
             log.debug('Parsing %s as HTML', filename)
             data = raw
             try:
-                data = html5_parse(data)
+                data = html5_parse('<meta charset="utf-8">' + data)
             except Exception:
                 log.exception('HTML 5 parsing failed, falling back to older '
                               'parsers')

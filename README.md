@@ -13,11 +13,11 @@ The KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) and HTML expo
 
 ## Supported formats
 
-**Input:** epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, djvu, djv, chm, cbz, cbr
+**Input:** epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, djvu, djv, chm, cbz, cbr, pdf
 
 **Output:** epub, mobi, azw3, docx, fb2, html, htmlz, lrf, oeb, txt, txtz
 
-> **PDF input is NOT supported** — requires poppler CLI tools (pdftohtml, pdfinfo, pdftoppm) which are unavailable on Android.
+> **PDF input supports text-based PDFs.** Scanned PDFs require OCR, which is unavailable on Android.
 
 ## Build
 

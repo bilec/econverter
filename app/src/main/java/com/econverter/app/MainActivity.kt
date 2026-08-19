@@ -126,6 +126,20 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         }
         if (showOptions) {
             FormatDropdown("Output Profile", vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
+            if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        val pdfCleanupArgs = "--enable-heuristics --unwrap-lines --delete-blank-paragraphs " +
+                            "--remove-paragraph-spacing --dehyphenate --change-justification left"
+                        if (!vm.extraArgs.contains(pdfCleanupArgs)) {
+                            vm.extraArgs = listOf(vm.extraArgs, pdfCleanupArgs).filter { it.isNotBlank() }.joinToString(" ")
+                        }
+                    },
+                ) {
+                    Text("Apply PDF cleanup settings")
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             CheckboxRow("Smarten punctuation", vm.smartenPunctuation) { vm.smartenPunctuation = it }
             if (vm.outputFormat == "epub") {
@@ -179,6 +193,16 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 value = vm.extraArgs,
                 onValueChange = { vm.extraArgs = it },
                 label = { Text("e.g. --chapter-mark pagebreak") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Remove exact text", style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = vm.removeText,
+                onValueChange = { vm.removeText = it },
+                label = { Text("One regex or text sequence per line") },
                 modifier = Modifier.fillMaxWidth(),
             )
         }

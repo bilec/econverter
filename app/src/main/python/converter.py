@@ -20,6 +20,12 @@ def _parse_extra_args(extra_args):
                 opts[name] = extra_args[i + 1]
                 i += 1
         i += 1
+    remove_text = opts.pop("remove_text", "")
+    if remove_text:
+        sequences = [text for text in remove_text.splitlines() if text]
+        if sequences:
+            opts.setdefault("sr1_search", "(?:" + "|".join(sequences) + ")")
+            opts.setdefault("sr1_replace", "")
     return opts
 
 

@@ -32,6 +32,7 @@ class ConverterViewModel : ViewModel() {
     var marginLeft by mutableStateOf("")
     var marginRight by mutableStateOf("")
     var extraArgs by mutableStateOf("")
+    var removeText by mutableStateOf("")
     var status by mutableStateOf("")
     var isConverting by mutableStateOf(false)
     var pendingSave by mutableStateOf(false)
@@ -74,8 +75,8 @@ class ConverterViewModel : ViewModel() {
         }
     }
 
-    // ponytail: PDF excluded — needs poppler (input) and PyQt5 (output), unavailable on Android
-    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "djvu", "djv", "chm", "cbz", "cbr")
+    // ponytail: text-based PDFs use pypdf; scanned PDFs need OCR, which is unavailable on Android
+    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "djvu", "djv", "chm", "cbz", "cbr", "pdf")
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
@@ -159,13 +160,28 @@ class ConverterViewModel : ViewModel() {
         if (internalBatchFiles.isEmpty()) return false
         val treeId = DocumentsContract.getTreeDocumentId(dirUri)
         val parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(dirUri, treeId)
+        val childDocumentsUri = DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, treeId)
+        val existingNames = mutableSetOf<String>()
+        context.contentResolver.query(
+            childDocumentsUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                existingNames += cursor.getString(nameIndex)
+            }
+        }
         var successCount = 0
 
         for (file in internalBatchFiles) {
             val ext = file.extension
             val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            val targetName = uniqueFileName(file.name, existingNames)
             val newFileUri = try {
-                DocumentsContract.createDocument(context.contentResolver, parentDocumentUri, mimeType, file.name)
+                DocumentsContract.createDocument(context.contentResolver, parentDocumentUri, mimeType, targetName)
             } catch (e: Exception) {
                 null
             } ?: continue
@@ -173,9 +189,23 @@ class ConverterViewModel : ViewModel() {
             context.contentResolver.openOutputStream(newFileUri)?.use { output ->
                 file.inputStream().use { input -> input.copyTo(output) }
                 successCount++
+                existingNames += targetName
             }
         }
         return successCount > 0
+    }
+
+    private fun uniqueFileName(fileName: String, existingNames: Set<String>): String {
+        val extensionStart = fileName.lastIndexOf('.')
+        val baseName = if (extensionStart > 0) fileName.substring(0, extensionStart) else fileName
+        val extension = if (extensionStart > 0) fileName.substring(extensionStart) else ""
+        var index = 1
+        var candidate = fileName
+        while (candidate in existingNames) {
+            candidate = "$baseName($index)$extension"
+            index++
+        }
+        return candidate
     }
 
     private fun cleanup() {
@@ -207,6 +237,7 @@ class ConverterViewModel : ViewModel() {
         if (marginRight.isNotBlank()) args += listOf("--margin-right", marginRight)
         // ponytail: free-text extra args for power users, split on whitespace
         if (extraArgs.isNotBlank()) args += extraArgs.trim().split("\\s+".toRegex())
+        if (removeText.isNotBlank()) args += listOf("--remove-text", removeText)
         return args
     }
 
@@ -243,8 +274,6 @@ class ConverterViewModel : ViewModel() {
             cleanup()
             val py = Python.getInstance()
             val module = py.getModule("converter")
-            val cliArgs = buildExtraArgs()
-
             val convertedFiles = mutableListOf<File>()
             var failCount = 0
 
@@ -256,7 +285,7 @@ class ConverterViewModel : ViewModel() {
                 val tmpOut = File(context.filesDir, currentOutName)
 
                 val pyArgs = mutableListOf<Any>(tmpIn.absolutePath, tmpOut.absolutePath)
-                pyArgs.addAll(cliArgs)
+                pyArgs.addAll(buildExtraArgs())
 
                 val result = module.callAttr("convert", *pyArgs.toTypedArray())
                 val success = result.callAttr("__getitem__", "success").toBoolean()

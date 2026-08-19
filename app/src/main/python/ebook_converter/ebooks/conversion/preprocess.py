@@ -530,10 +530,8 @@ class HTMLPreProcessor(object):
         # Function for processing search and replace
 
         def do_search_replace(search_pattern, replace_txt):
-            from ebook_converter.ebooks.conversion.search_replace import \
-                    compile_regular_expression
             try:
-                search_re = compile_regular_expression(search_pattern)
+                search_re = re.compile(search_pattern)
                 if not replace_txt:
                     replace_txt = ''
                 rules.insert(0, (search_re, replace_txt))

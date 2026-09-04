@@ -8,8 +8,11 @@ Run:  python -m pytest tests/ -v
 
 import os
 import shutil
+import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from tests.test_convert_all_formats import _make_minimal_epub
 
@@ -85,6 +88,33 @@ class TestConverterExtraArgs(unittest.TestCase):
         self.assertIsNone(safe_xml_fromstring(""))
         self.assertIsNone(safe_xml_fromstring(b""))
         self.assertIsNone(safe_xml_fromstring("not xml at all"))
+
+    def test_txt_conversion_allows_missing_detection_confidence(self):
+        import converter
+
+        input_path = os.path.join(self._tmpdir, "detected.txt")
+        out_path = os.path.join(self._tmpdir, "detected.epub")
+        with open(input_path, "wb") as input_file:
+            input_file.write("\u88ab\u5144\u63a7\u59b9\u59b9\u8bf1\u60d1\u800c\u5f00\u59cb\u7684\u7eaf\u7231".encode())
+
+        with patch(
+            "ebook_converter.ebooks.chardet.detect",
+            return_value={"encoding": "utf-8", "confidence": None},
+        ):
+            result = converter.convert(input_path, out_path)
+
+        self._assert_converted(result, out_path)
+
+    def test_encoding_detection_normalizes_missing_confidence(self):
+        from ebook_converter.ebooks.chardet import detect
+
+        with patch.dict(
+            sys.modules,
+            {"chardet": SimpleNamespace(detect=lambda _: {"encoding": "utf-8", "confidence": None})},
+        ):
+            result = detect(b"plain text")
+
+        self.assertEqual(result["confidence"], 0.0)
 
 
 if __name__ == "__main__":

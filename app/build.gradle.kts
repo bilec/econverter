@@ -3,6 +3,7 @@ import com.android.build.api.variant.FilterConfiguration
 val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt).get()
 val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
 val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
+val ebookConverterLibVersion = providers.gradleProperty("EBOOK_CONVERTER_LIB_VERSION").get()
 
 plugins {
     id("com.android.application")
@@ -88,18 +89,7 @@ chaquopy {
         version = "3.11"
         extractPackages("ebook_converter")
         pip {
-            install("beautifulsoup4>=4.9.3")
-            install("css-parser>=1.0.6")
-            install("filelock>=3.0.12")
-            install("html2text>=2020.1.16")
-            install("lxml")
-            install("odfpy>=1.4.1")
-            install("pillow>=8.0.1")
-            install("pypdf>=5.0.0")
-            install("python-dateutil>=2.8.1")
-            install("reportlab>=4.0")
-            install("svglib>=0.9.3")
-            install("tinycss>=0.4")
+            install("ebook-converter-lib==$ebookConverterLibVersion")
         }
     }
 }

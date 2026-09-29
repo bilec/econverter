@@ -9,6 +9,8 @@
 
 Android app wrapping [ebook-converter](https://github.com/gryf/ebook-converter) via [Chaquopy](https://chaquo.com/chaquopy/) (Python on Android).
 
+The conversion engine lives in [ebook-converter-lib](https://github.com/bilec/ebook-converter-lib) and is installed as a pinned pip dependency. The pinned version is `EBOOK_CONVERTER_LIB_VERSION` in [gradle.properties](gradle.properties). This repository contains only the Android app.
+
 The KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) and HTML export templates (`ebook_converter/data/html_export_default*`) are ported from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal). The templates were adapted from Mustache to templite syntax.
 
 ## Supported formats

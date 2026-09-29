@@ -76,7 +76,7 @@ class ConverterViewModel : ViewModel() {
     }
 
     // ponytail: text-based PDFs use pypdf; scanned PDFs need OCR, which is unavailable on Android
-    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "djvu", "djv", "chm", "cbz", "cbr", "pdf")
+    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "md", "markdown", "djvu", "djv", "chm", "cbz", "cbr", "pdf")
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
@@ -118,7 +118,7 @@ class ConverterViewModel : ViewModel() {
             val result = withContext(Dispatchers.IO) {
                 try {
                     val py = Python.getInstance()
-                    val converter = py.getModule("converter")
+                    val converter = py.getModule("ebook_converter_lib")
                     converter.callAttr("check_deps_str").toJava(String::class.java)
                 } catch (e: Exception) {
                     "Error: ${e.message}"
@@ -249,7 +249,7 @@ class ConverterViewModel : ViewModel() {
             val outFile = File(context.filesDir, getOutputFileName())
 
             val py = Python.getInstance()
-            val module = py.getModule("converter")
+            val module = py.getModule("ebook_converter_lib")
             val cliArgs = buildExtraArgs()
             val pyArgs = mutableListOf<Any>(inputFile.absolutePath, outFile.absolutePath)
             pyArgs.addAll(cliArgs)
@@ -273,7 +273,7 @@ class ConverterViewModel : ViewModel() {
         return try {
             cleanup()
             val py = Python.getInstance()
-            val module = py.getModule("converter")
+            val module = py.getModule("ebook_converter_lib")
             val convertedFiles = mutableListOf<File>()
             var failCount = 0
 

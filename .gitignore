@@ -14,8 +14,6 @@
 !/settings.gradle.kts
 !/gradle.properties
 !/gradlew
-!/pyproject.toml
-!/uv.lock
 
 # gradle wrapper
 !/gradle/wrapper/gradle-wrapper.jar
@@ -30,16 +28,6 @@
 
 # kotlin source
 !/app/src/main/java/**/*.kt
-
-# python source
-!/app/src/main/python/**/*.py
-!/app/src/main/python/**/*.xsl
-!/app/src/main/python/**/*.css
-!/app/src/main/python/**/*.tmpl
-!/app/src/main/python/**/*.html
-!/app/src/main/python/**/*.xhtml
-!/app/src/main/python/**/*.json
-!/app/src/main/python/**/*.types
 
 # fdroid metadata
 !/metadata/**/*.yml

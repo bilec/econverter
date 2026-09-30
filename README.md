@@ -15,7 +15,7 @@ The KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) and HTML expo
 
 ## Supported formats
 
-**Input:** epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, djvu, djv, chm, cbz, cbr, pdf
+**Input:** epub, mobi, azw3, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, md, markdown, pdf
 
 **Output:** epub, mobi, azw3, docx, fb2, html, htmlz, lrf, oeb, txt, txtz
 

@@ -43,6 +43,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 ## Documentation Maintenance
 
 - Keep `AGENTS.md` and `CODEBASE_MAP.md` up to date whenever architecture, entrypoints, or conventions change.
+- When bumping `EBOOK_CONVERTER_LIB_VERSION`, sync the input format list in `ConverterViewModel.inputFormats`, [README.md](README.md), and [fastlane full_description.txt](fastlane/metadata/android/en-US/full_description.txt).
 
 ## Domain Glossary
 

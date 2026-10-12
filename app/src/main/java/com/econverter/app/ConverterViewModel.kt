@@ -3,6 +3,7 @@ package com.econverter.app
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -12,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+data class HistoryEntry(val fileName: String, val outputFormat: String, val status: String, val timestamp: Long)
 
 class ConverterViewModel : ViewModel() {
     var inputUris by mutableStateOf<List<Uri>>(emptyList())
@@ -36,6 +39,7 @@ class ConverterViewModel : ViewModel() {
     var status by mutableStateOf("")
     var isConverting by mutableStateOf(false)
     var pendingSave by mutableStateOf(false)
+    val history = mutableStateListOf<HistoryEntry>()
     private var internalOutputFile: File? = null
     private var internalBatchFiles: List<File> = emptyList()
     private var internalInputFile: File? = null
@@ -80,7 +84,9 @@ class ConverterViewModel : ViewModel() {
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
-    val outputFormats = listOf("epub", "mobi", "azw3", "docx", "fb2", "html", "htmlz", "lrf", "oeb", "txt", "txtz")
+
+    // html (a ZIP) and oeb (a folder) are left out: the save step expects one plain file
+    val outputFormats = listOf("epub", "mobi", "azw3", "docx", "fb2", "htmlz", "lrf", "txt", "txtz")
 
     fun isInputSupported(fileName: String): Boolean {
         val ext = fileName.substringAfterLast(".", "").lowercase()
@@ -109,7 +115,14 @@ class ConverterViewModel : ViewModel() {
             if (result.startsWith("Done")) {
                 pendingSave = true
             }
+            recordHistory(result)
         }
+    }
+
+    private fun recordHistory(result: String) {
+        val entryName = if (isBatch) "${inputFileNames.size} eBooks" else inputFileName
+        history.add(HistoryEntry(entryName, outputFormat, result, System.currentTimeMillis()))
+        if (history.size > 20) history.removeAt(0)
     }
 
     fun checkDeps() {
@@ -235,8 +248,8 @@ class ConverterViewModel : ViewModel() {
         if (marginBottom.isNotBlank()) args += listOf("--margin-bottom", marginBottom)
         if (marginLeft.isNotBlank()) args += listOf("--margin-left", marginLeft)
         if (marginRight.isNotBlank()) args += listOf("--margin-right", marginRight)
-        // ponytail: free-text extra args for power users, split on whitespace
-        if (extraArgs.isNotBlank()) args += extraArgs.trim().split("\\s+".toRegex())
+        // ponytail: free-text extra args for power users; "quoted values" (straight or curly quotes) stay one argument
+        if (extraArgs.isNotBlank()) args += Regex("[\"“]([^\"”]*)[\"”]|\\S+").findAll(extraArgs).map { it.groups[1]?.value ?: it.value }
         if (removeText.isNotBlank()) args += listOf("--remove-text", removeText)
         return args
     }
@@ -278,6 +291,8 @@ class ConverterViewModel : ViewModel() {
             var failCount = 0
 
             for (i in uris.indices) {
+                // Compose snapshot state is safe to write from the IO thread
+                status = "Converting... $i/${uris.size} done"
                 val uri = uris[i]
                 val fileName = fileNames[i]
                 val currentOutName = "${fileName.substringBeforeLast(".")}.$outputFormat"

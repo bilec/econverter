@@ -14,6 +14,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
+import java.text.DateFormat
+import java.util.Date
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,145 +94,217 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        Text("eBook Converter", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(24.dp))
+    var showAbout by remember { mutableStateOf(false) }
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
+    }
 
-        Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
-            Text("Select eBooks")
-        }
-
-        if (vm.inputFileNames.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            if (vm.isBatch) {
-                Text("Input: ${vm.inputFileNames.size} eBooks selected", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                Text("Input: ${vm.inputFileName}", style = MaterialTheme.typography.bodyMedium)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("eBook Converter") },
+                actions = {
+                    IconButton(onClick = { showAbout = true }) {
+                        Icon(Icons.Default.Info, contentDescription = "About")
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
+                Text("Select eBooks")
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        FormatDropdown("Output Format", vm.outputFormat, vm.outputFormats) { vm.outputFormat = it }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        var showOptions by remember { mutableStateOf(false) }
-        TextButton(onClick = { showOptions = !showOptions }) {
-            Text(if (showOptions) "▲ Hide Options" else "▼ Options")
-        }
-        if (showOptions) {
-            FormatDropdown("Output Profile", vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
-            if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
+            if (vm.inputFileNames.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        val pdfCleanupArgs = "--enable-heuristics --unwrap-lines --delete-blank-paragraphs " +
-                            "--remove-paragraph-spacing --dehyphenate --change-justification left"
-                        if (!vm.extraArgs.contains(pdfCleanupArgs)) {
-                            vm.extraArgs = listOf(vm.extraArgs, pdfCleanupArgs).filter { it.isNotBlank() }.joinToString(" ")
-                        }
-                    },
-                ) {
-                    Text("Apply PDF cleanup settings")
+                if (vm.isBatch) {
+                    Text("Input: ${vm.inputFileNames.size} eBooks selected", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text("Input: ${vm.inputFileName}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            CheckboxRow("Smarten punctuation", vm.smartenPunctuation) { vm.smartenPunctuation = it }
-            if (vm.outputFormat == "epub") {
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            FormatDropdown("Output Format", vm.outputFormat, vm.outputFormats) { vm.outputFormat = it }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            var showOptions by remember { mutableStateOf(false) }
+            TextButton(onClick = { showOptions = !showOptions }) {
+                Text(if (showOptions) "▲ Hide Options" else "▼ Options")
+            }
+            if (showOptions) {
+                FormatDropdown("Output Profile", vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
+                if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val pdfCleanupArgs = "--enable-heuristics --unwrap-lines --delete-blank-paragraphs " +
+                                "--remove-paragraph-spacing --dehyphenate --change-justification left"
+                            if (!vm.extraArgs.contains(pdfCleanupArgs)) {
+                                vm.extraArgs = listOf(vm.extraArgs, pdfCleanupArgs).filter { it.isNotBlank() }.joinToString(" ")
+                            }
+                        },
+                    ) {
+                        Text("Apply PDF cleanup settings")
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("EPUB version: ")
-                    listOf("2", "3").forEach { v ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = vm.epubVersion == v, onClick = { vm.epubVersion = v })
-                            Text(v)
+                CheckboxRow("Smarten punctuation", vm.smartenPunctuation) { vm.smartenPunctuation = it }
+                if (vm.outputFormat == "epub") {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("EPUB version: ")
+                        listOf("2", "3").forEach { v ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = vm.epubVersion == v, onClick = { vm.epubVersion = v })
+                                Text(v)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Metadata", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                OptionField(
+                    label = if (vm.isBatch) "Title (Disabled for batch)" else "Title",
+                    value = vm.title,
+                    enabled = !vm.isBatch,
+                    onValueChange = { vm.title = it },
+                )
+                OptionField("Authors", vm.authors) { vm.authors = it }
+                OptionField("Publisher", vm.publisher) { vm.publisher = it }
+                OptionField("Comments", vm.comments) { vm.comments = it }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Font", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                OptionField("Base font size (pt)", vm.baseFontSize) { vm.baseFontSize = it }
+                CheckboxRow("Disable font rescaling", vm.disableFontRescaling) { vm.disableFontRescaling = it }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Margins (pt)", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = vm.marginTop, onValueChange = { vm.marginTop = it }, label = { Text("Top") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = vm.marginBottom, onValueChange = { vm.marginBottom = it }, label = { Text("Bottom") }, modifier = Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = vm.marginLeft, onValueChange = { vm.marginLeft = it }, label = { Text("Left") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = vm.marginRight, onValueChange = { vm.marginRight = it }, label = { Text("Right") }, modifier = Modifier.weight(1f))
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Extra arguments", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = vm.extraArgs,
+                    onValueChange = { vm.extraArgs = it },
+                    label = { Text("e.g. --chapter-mark pagebreak --title \"My Book\"") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Remove exact text", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = vm.removeText,
+                    onValueChange = { vm.removeText = it },
+                    label = { Text("One regex or text sequence per line") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { vm.convert(context) },
+                enabled = vm.hasSelection && !vm.isConverting,
+            ) {
+                Text(if (vm.isConverting) "Converting..." else "Convert")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (vm.status.isNotEmpty()) {
+                Text(vm.status, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            if (vm.status.startsWith("Error:")) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(onClick = { reportOnGitHub(context, vm) }) {
+                    Text("Report Issue")
+                }
+            }
+
+            if (vm.history.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                var showHistory by remember { mutableStateOf(false) }
+                TextButton(onClick = { showHistory = !showHistory }) {
+                    Text(if (showHistory) "▲ Hide History (${vm.history.size})" else "▼ History (${vm.history.size})")
+                }
+                if (showHistory) {
+                    vm.history.asReversed().forEach { entry ->
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Text("${entry.fileName} → ${entry.outputFormat}", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Metadata", style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            OptionField(
-                label = if (vm.isBatch) "Title (Disabled for batch)" else "Title",
-                value = vm.title,
-                enabled = !vm.isBatch,
-                onValueChange = { vm.title = it },
-            )
-            OptionField("Authors", vm.authors) { vm.authors = it }
-            OptionField("Publisher", vm.publisher) { vm.publisher = it }
-            OptionField("Comments", vm.comments) { vm.comments = it }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Font", style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            OptionField("Base font size (pt)", vm.baseFontSize) { vm.baseFontSize = it }
-            CheckboxRow("Disable font rescaling", vm.disableFontRescaling) { vm.disableFontRescaling = it }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Margins (pt)", style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = vm.marginTop, onValueChange = { vm.marginTop = it }, label = { Text("Top") }, modifier = Modifier.weight(1f))
-                OutlinedTextField(value = vm.marginBottom, onValueChange = { vm.marginBottom = it }, label = { Text("Bottom") }, modifier = Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = vm.marginLeft, onValueChange = { vm.marginLeft = it }, label = { Text("Left") }, modifier = Modifier.weight(1f))
-                OutlinedTextField(value = vm.marginRight, onValueChange = { vm.marginRight = it }, label = { Text("Right") }, modifier = Modifier.weight(1f))
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Extra arguments", style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedTextField(
-                value = vm.extraArgs,
-                onValueChange = { vm.extraArgs = it },
-                label = { Text("e.g. --chapter-mark pagebreak") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Remove exact text", style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedTextField(
-                value = vm.removeText,
-                onValueChange = { vm.removeText = it },
-                label = { Text("One regex or text sequence per line") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = { vm.convert(context) },
-            enabled = vm.hasSelection && !vm.isConverting,
-        ) {
-            Text(if (vm.isConverting) "Converting..." else "Convert")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (vm.status.isNotEmpty()) {
-            Text(vm.status, style = MaterialTheme.typography.bodyLarge)
-        }
-
-        if (vm.status.startsWith("Error:")) {
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(onClick = { reportOnGitHub(context, vm) }) {
-                Text("Report Issue")
-            }
         }
     }
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+        } catch (_: Exception) {
+            "unknown"
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("About eBook Converter") },
+        text = {
+            Column {
+                Text("Version: $versionName")
+                Text("Author: Martin Bilka")
+                Text("License: GPL-3.0-only")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bilec/econverter")))
+            }) {
+                Text("View on GitHub")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
 }
 
 // ponytail: tiny composable helpers to reduce repetition in the options section

@@ -1,8 +1,8 @@
 EbookConverter wraps gryf/ebook-converter (a Calibre fork) to run natively on Android via Chaquopy.
 
 Features:
-- Convert between 20+ ebook formats directly on your phone
-- Input: epub, mobi, azw3, azw4, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, djvu, chm, cbz, cbr
+- Convert between popular ebook formats (epub, mobi, azw3, docx, fb2, …) directly on your phone
+- Input: epub, mobi, azw3, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, md, markdown, pdf
 - Output: epub, mobi, azw3, docx, fb2, html, htmlz, lrf, oeb, txt, txtz
 - Output profiles for Kindle, Kobo, Nook, iPad, and generic e-ink devices
 - Metadata editing (title, authors, publisher)
@@ -11,6 +11,7 @@ Features:
 - No internet required — all conversion runs locally
 
 Limitations:
-- PDF input/output not supported (requires poppler and PyQt5, unavailable on Android)
+- PDF input supports text-based PDFs only (scanned PDFs need OCR, unavailable on Android)
+- PDF output not supported
 
 Licensed under GPL-3.0.

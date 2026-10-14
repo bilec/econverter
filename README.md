@@ -44,7 +44,8 @@ output format, and backend; history lasts for the current app session.
 
 ## Build
 
-No Android Studio required. APK builds use JDK 17+ and the Android SDK.
+No Android Studio required. APK builds use JDK 17+, the Android SDK, and
+Python 3.11 available as `python3.11` on PATH for Chaquopy bytecode compilation.
 The boko Kotlin/JNI implementation is owned by the separate `boko-bindings`
 project, not this repository. `BOKO_ANDROID_VERSION` in
 [gradle.properties](gradle.properties) pins its Maven artifact.
@@ -77,5 +78,6 @@ Install on connected device/emulator:
 ## Prerequisites
 
 - JDK 17+
+- Python 3.11 available as `python3.11` on PATH
 - Android SDK with platform 35 (`sdkmanager "platforms;android-35"`)
 - For the local bindings source override only: Docker and a `boko-bindings` checkout

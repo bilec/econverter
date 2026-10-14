@@ -16,7 +16,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 - **Python Bridge**: `ConversionService.kt` calls `ebook_converter_lib.convert()` in the private `:conversion` process. Cancellation kills that process before removing its run directory.
 - **Conversion Engine**: the packaged bridge forwards parameters to Calibre's `Plumber` conversion pipeline.
 - **Backends**: `ConversionBackend.kt` owns accepted input/output formats. Settings persists Auto/Calibre/boko selection; the worker validates the snapshotted request. Direct boko skips Python. Auto uses intermediate EPUBs for KFX inputs and KFX/Markdown outputs, applying options through Calibre.
-- **boko Library**: the app depends on `io.github.bilec:boko-android`, pinned by `BOKO_ANDROID_VERSION`. JNI and Rust live in the separate `boko-bindings` project. For unpublished/local versions, use `-PbokoBindingsDir=../boko-bindings`; see [README.md](README.md#build).
+- **boko Library**: the app depends on `io.github.bilec:boko-android`, pinned by `BOKO_ANDROID_VERSION`. JNI and Rust live in the separate `boko-bindings` project.
 
 ## Developer Commands
 

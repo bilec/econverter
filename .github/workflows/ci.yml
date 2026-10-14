@@ -29,6 +29,12 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Set up Python 3.11
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -37,4 +43,6 @@ jobs:
 
       - name: Run Gradle check and unit tests
         run: ./gradlew check
+        env:
+          CHAQUOPY_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
 

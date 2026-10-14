@@ -93,7 +93,7 @@ androidComponents {
 chaquopy {
     defaultConfig {
         version = "3.11"
-        buildPython("python3.11")
+        buildPython(providers.environmentVariable("CHAQUOPY_BUILD_PYTHON").getOrElse("python3.11"))
         extractPackages("ebook_converter")
         pip {
             install("ebook-converter-lib==$ebookConverterLibVersion")

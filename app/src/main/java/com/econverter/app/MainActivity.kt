@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -24,8 +25,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.DateFormat
 import java.util.Date
@@ -305,6 +308,7 @@ private fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (Convers
         onDismissRequest = onDismiss,
         title = { Text("Conversion backend") },
         text = {
+            CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
                 ConversionBackend.entries.forEach { option ->
                     Row(
@@ -344,6 +348,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("About eBook Converter") },
         text = {
+            CenterDialogWindow()
             Column {
                 Text("Version: $versionName")
                 Text("Author: Martin Bilka")
@@ -363,6 +368,12 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+@Composable
+private fun CenterDialogWindow() {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+    SideEffect { window?.setGravity(Gravity.CENTER) }
 }
 
 // ponytail: tiny composable helpers to reduce repetition in the options section

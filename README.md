@@ -7,11 +7,15 @@
 [![GitHub release](https://img.shields.io/github/release/bilec/econverter.svg)](https://github.com/bilec/econverter/releases) 
 [![Release](https://github.com/bilec/econverter/actions/workflows/release.yml/badge.svg)](https://github.com/bilec/econverter/actions/workflows/release.yml)
 
-Android app wrapping [ebook-converter](https://github.com/gryf/ebook-converter) via [Chaquopy](https://chaquo.com/chaquopy/) (Python on Android).
+Android e-book converter using:
 
-The conversion engine lives in [ebook-converter-lib](https://github.com/bilec/ebook-converter-lib) and is installed as a pinned pip dependency. The pinned version is `EBOOK_CONVERTER_LIB_VERSION` in [gradle.properties](gradle.properties). This repository contains only the Android app.
+- [ebook-converter](https://github.com/gryf/ebook-converter) through our
+	[ebook-converter-lib](https://github.com/bilec/ebook-converter-lib) package and
+	[Chaquopy](https://chaquo.com/chaquopy/) (Python on Android).
+- [boko](https://github.com/zacharydenton/boko) by Zachary Denton through our
+	Android bindings (`io.github.bilec:boko-android`).
 
-The library's KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) and HTML export templates (`ebook_converter/data/html_export_default*`) are ported from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal). The templates were adapted from Mustache to templite syntax.
+The ebook-converter-lib package's KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) and HTML export templates (`ebook_converter/data/html_export_default*`) are ported from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal). The templates were adapted from Mustache to templite syntax.
 
 ## Supported formats
 
@@ -25,7 +29,7 @@ Choose the conversion backend in **Settings**. The choice is remembered, and
 accepted inputs and output choices change with the backend:
 
 - **Auto** (default): Calibre handles its supported formats. KFX inputs are
-	converted to an intermediate EPUB by [boko](https://github.com/zacharydenton/boko).
+	converted to an intermediate EPUB by boko.
 	KFX and Markdown outputs use Calibre to produce an EPUB, then boko to write
 	the final file. Calibre conversion options apply throughout Auto mode.
 - **Calibre**: Auto's formats except KFX input and KFX/Markdown output.
@@ -44,13 +48,14 @@ output format, and backend; history lasts for the current app session.
 
 ## Build
 
-No Android Studio required. APK builds use JDK 17+, the Android SDK, and
-Python 3.11 available as `python3.11` on PATH for Chaquopy bytecode compilation.
-Alternatively, set `CHAQUOPY_BUILD_PYTHON` to the Python 3.11 executable's
-absolute path. CI uses the interpreter path returned by `actions/setup-python`.
-The boko Kotlin/JNI implementation is owned by the separate `boko-bindings`
-project, not this repository. `BOKO_ANDROID_VERSION` in
-[gradle.properties](gradle.properties) pins its Maven artifact.
+Requires JDK 17+, Android SDK platform 35, and Python 3.11. Android Studio is
+optional. Python must be available as `python3.11` on PATH, or set
+`CHAQUOPY_BUILD_PYTHON` to its absolute executable path.
+
+Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION` and
+`BOKO_ANDROID_VERSION` in [gradle.properties](gradle.properties).
+
+Build a debug APK:
 
 ```sh
 ./gradlew assembleDebug
@@ -61,9 +66,3 @@ Install on connected device/emulator:
 ```sh
 ./gradlew installDebug
 ```
-
-## Prerequisites
-
-- JDK 17+
-- Python 3.11 available as `python3.11` on PATH
-- Android SDK with platform 35 (`sdkmanager "platforms;android-35"`)

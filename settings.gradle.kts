@@ -16,3 +16,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "econverter"
 include(":app")
+
+providers.gradleProperty("bokoBindingsDir").orNull?.let { bindingsDir ->
+    includeBuild(bindingsDir) {
+        dependencySubstitution {
+            substitute(module("io.github.bilec:boko-android")).using(project(":android"))
+        }
+    }
+}

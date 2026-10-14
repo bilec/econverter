@@ -13,10 +13,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
-data class HistoryEntry(val fileName: String, val outputFormat: String, val status: String, val timestamp: Long)
+data class HistoryEntry(
+    val fileName: String,
+    val outputFormat: String,
+    val status: String,
+    val timestamp: Long,
+    val uris: List<Uri> = emptyList(),
+    val fileNames: List<String> = emptyList(),
+    val backend: ConversionBackend = ConversionBackend.AUTO,
+)
 
 class ConverterViewModel : ViewModel() {
+    var backend by mutableStateOf(ConversionBackend.AUTO)
+        private set
     var inputUris by mutableStateOf<List<Uri>>(emptyList())
     var inputFileNames by mutableStateOf<List<String>>(emptyList())
     var outputFormat by mutableStateOf("epub")
@@ -38,34 +49,72 @@ class ConverterViewModel : ViewModel() {
     var removeText by mutableStateOf("")
     var status by mutableStateOf("")
     var isConverting by mutableStateOf(false)
+    var isCancelling by mutableStateOf(false)
+    var isSaving by mutableStateOf(false)
     var pendingSave by mutableStateOf(false)
     val history = mutableStateListOf<HistoryEntry>()
     private var internalOutputFile: File? = null
     private var internalBatchFiles: List<File> = emptyList()
-    private var internalInputFile: File? = null
+    private var internalWorkDirectory: File? = null
+    private var worker: ConversionWorker? = null
+    private val startedAt = System.currentTimeMillis()
+    private var backendPreferenceLoaded = false
 
     val isBatch: Boolean get() = inputFileNames.size > 1
     val hasSelection: Boolean get() = inputUris.isNotEmpty()
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
+    val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
+    val canConvert: Boolean get() = hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
+
+    fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
+        if (isConverting || isSaving || pendingSave) return
+        backend = value
+        if (outputFormat !in outputFormats) outputFormat = "epub"
+        status = if (unsupportedInputFileNames.isEmpty()) "" else "Unsupported input for ${backend.label}: ${unsupportedInputFileNames.joinToString(", ")}"
+        context?.getSharedPreferences("settings", 0)?.edit()?.putString("backend", value.name)?.apply()
+    }
+
+    fun loadBackendPreference(context: android.content.Context) {
+        if (backendPreferenceLoaded) return
+        backendPreferenceLoaded = true
+        val saved = context.getSharedPreferences("settings", 0).getString("backend", null)
+        selectBackend(ConversionBackend.entries.firstOrNull { it.name == saved } ?: ConversionBackend.AUTO)
+    }
+
+    fun clearSelection() {
+        if (isConverting || isSaving || pendingSave) return
+        inputUris = emptyList()
+        inputFileNames = emptyList()
+        status = ""
+    }
+
+    fun selectHistory(entry: HistoryEntry) {
+        if (isConverting || isSaving || pendingSave || entry.uris.isEmpty()) return
+        inputUris = entry.uris.toList()
+        inputFileNames = entry.fileNames.toList()
+        outputFormat = entry.outputFormat
+        selectBackend(entry.backend)
+    }
 
     fun purgeStaleTempFiles(context: android.content.Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            context.filesDir?.listFiles()?.forEach { file ->
-                if (file.name.endsWith(".tmp")) {
-                    file.delete()
+            File(context.filesDir, "conversion-runs").listFiles()?.forEach { file ->
+                if (file != internalWorkDirectory && file.lastModified() < startedAt) {
+                    file.deleteRecursively()
                 }
             }
         }
     }
 
     fun addSelectedUris(context: android.content.Context, newUris: List<Uri>) {
+        if (isConverting || isSaving || pendingSave) return
         viewModelScope.launch(Dispatchers.IO) {
-            val validPairs = newUris.map { uri -> uri to getFileName(context, uri) }
-                .filter { isInputSupported(it.second) }
-
-            val unsupportedCount = newUris.size - validPairs.size
+            val pairs = newUris.map { uri -> uri to getFileName(context, uri) }
 
             withContext(Dispatchers.Main) {
+                if (isConverting || isSaving || pendingSave) return@withContext
+                val validPairs = pairs.filter { isInputSupported(it.second) }
+                val unsupportedCount = newUris.size - validPairs.size
                 if (validPairs.isNotEmpty()) {
                     inputUris = inputUris + validPairs.map { it.first }
                     inputFileNames = inputFileNames + validPairs.map { it.second }
@@ -79,14 +128,12 @@ class ConverterViewModel : ViewModel() {
         }
     }
 
-    // ponytail: text-based PDFs use pypdf; scanned PDFs need OCR, which is unavailable on Android
-    val inputFormats = setOf("epub", "mobi", "azw3", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "md", "markdown", "pdf")
+    val inputFormats: Set<String> get() = backend.inputFormats
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
 
-    // html (a ZIP) and oeb (a folder) are left out: the save step expects one plain file
-    val outputFormats = listOf("epub", "mobi", "azw3", "docx", "fb2", "htmlz", "lrf", "txt", "txtz")
+    val outputFormats: List<String> get() = backend.outputFormats
 
     fun isInputSupported(fileName: String): Boolean {
         val ext = fileName.substringAfterLast(".", "").lowercase()
@@ -94,34 +141,63 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun getOutputFileName(): String {
-        return "${inputFileName.substringBeforeLast(".")}.$outputFormat"
+        return internalOutputFile?.name ?: "${inputFileName.substringBeforeLast(".")}.$outputFormat"
     }
 
     fun convert(context: android.content.Context) {
-        if (!hasSelection) return
+        if (!hasSelection || isConverting || isSaving || pendingSave) return
+        if (!canConvert) {
+            status = "Error: Unsupported input or output for ${backend.label}"
+            return
+        }
+        cleanup()
+        val uris = inputUris.toList()
+        val names = inputFileNames.toList()
+        val format = outputFormat
+        val selectedBackend = backend
+        val args = if (selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
+        val directory = File(context.filesDir, "conversion-runs/${UUID.randomUUID()}")
+        internalWorkDirectory = directory
         isConverting = true
+        isCancelling = false
         status = "Converting..."
-
+        val currentWorker = ConversionWorker(context, directory, uris, names, format, args, selectedBackend) { status = it }
+        worker = currentWorker
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                if (isBatch) {
-                    runBatchConversion(context, inputUris, inputFileNames)
+            try {
+                val result = currentWorker.run()
+                status = result.status
+                if (uris.size > 1) {
+                    internalBatchFiles = result.files
                 } else {
-                    runConversion(context, inputUris.first(), inputFileName)
+                    internalOutputFile = result.files.firstOrNull()
                 }
+                pendingSave = result.files.isNotEmpty()
+                recordHistory(result.status, uris, names, format, selectedBackend)
+            } finally {
+                worker = null
+                isConverting = false
+                isCancelling = false
             }
-            status = result
-            isConverting = false
-            if (result.startsWith("Done")) {
-                pendingSave = true
-            }
-            recordHistory(result)
         }
     }
 
-    private fun recordHistory(result: String) {
-        val entryName = if (isBatch) "${inputFileNames.size} eBooks" else inputFileName
-        history.add(HistoryEntry(entryName, outputFormat, result, System.currentTimeMillis()))
+    fun cancelConversion() {
+        if (!isConverting || isCancelling) return
+        isCancelling = true
+        status = "Cancelling..."
+        worker?.cancel()
+    }
+
+    fun discardPendingSave() {
+        if (isSaving) return
+        cleanup()
+        status = "Save cancelled"
+    }
+
+    private fun recordHistory(result: String, uris: List<Uri>, names: List<String>, format: String, selectedBackend: ConversionBackend) {
+        val entryName = if (names.size > 1) "${names.size} eBooks" else names.first()
+        history.add(HistoryEntry(entryName, format, result, System.currentTimeMillis(), uris, names, selectedBackend))
         if (history.size > 20) history.removeAt(0)
     }
 
@@ -142,21 +218,29 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun saveToUri(context: android.content.Context, uri: Uri) {
+        if (isSaving || isConverting || !pendingSave) return
+        isSaving = true
+        val batch = internalBatchFiles.isNotEmpty()
+        val outputName = getOutputFileName()
         viewModelScope.launch(Dispatchers.IO) {
-            val count = if (isBatch) internalBatchFiles.size else 1
-            val saved = if (isBatch) {
-                saveBatchToDirectoryUri(context, uri)
-            } else {
-                saveSingleToUri(context, uri)
+            val count = if (batch) internalBatchFiles.size else 1
+            val result = try {
+                val saved = if (batch) saveBatchToDirectoryUri(context, uri) else saveSingleToUri(context, uri)
+                if (!saved) {
+                    "Error: could not write file(s)"
+                } else if (batch) {
+                    "Saved $count eBooks to directory"
+                } else {
+                    "Saved: $outputName"
+                }
+            } catch (error: Exception) {
+                "Error: ${error.message}"
             }
             cleanup()
             withContext(Dispatchers.Main) {
-                status = if (saved) {
-                    if (isBatch) "Saved $count eBooks to directory" else "Saved: ${getOutputFileName()}"
-                } else {
-                    "Error: could not write file(s)"
-                }
+                status = result
                 pendingSave = false
+                isSaving = false
             }
         }
     }
@@ -222,13 +306,17 @@ class ConverterViewModel : ViewModel() {
     }
 
     private fun cleanup() {
-        internalInputFile?.delete()
-        internalOutputFile?.delete()
-        internalBatchFiles.forEach { it.delete() }
+        internalWorkDirectory?.deleteRecursively()
         internalOutputFile = null
         internalBatchFiles = emptyList()
-        internalInputFile = null
+        internalWorkDirectory = null
         pendingSave = false
+    }
+
+    override fun onCleared() {
+        worker?.cancel()
+        if (!isConverting && !isSaving) cleanup()
+        super.onCleared()
     }
 
     private fun buildExtraArgs(): List<String> {
@@ -252,93 +340,5 @@ class ConverterViewModel : ViewModel() {
         if (extraArgs.isNotBlank()) args += Regex("[\"“]([^\"”]*)[\"”]|\\S+").findAll(extraArgs).map { it.groups[1]?.value ?: it.value }
         if (removeText.isNotBlank()) args += listOf("--remove-text", removeText)
         return args
-    }
-
-    private fun runConversion(context: android.content.Context, uri: Uri, fileName: String): String {
-        return try {
-            cleanup()
-            val inputFile = copyUriToInternal(context, uri, fileName)
-            internalInputFile = inputFile
-            val outFile = File(context.filesDir, getOutputFileName())
-
-            val py = Python.getInstance()
-            val module = py.getModule("ebook_converter_lib")
-            val cliArgs = buildExtraArgs()
-            val pyArgs = mutableListOf<Any>(inputFile.absolutePath, outFile.absolutePath)
-            pyArgs.addAll(cliArgs)
-            val result = module.callAttr("convert", *pyArgs.toTypedArray())
-
-            val success = result.callAttr("__getitem__", "success").toBoolean()
-            val message = result.callAttr("__getitem__", "message").toString()
-
-            if (success) {
-                internalOutputFile = outFile
-                "Done — choose where to save"
-            } else {
-                "Error: $message"
-            }
-        } catch (e: Exception) {
-            "Error: ${e.message}"
-        }
-    }
-
-    private fun runBatchConversion(context: android.content.Context, uris: List<Uri>, fileNames: List<String>): String {
-        return try {
-            cleanup()
-            val py = Python.getInstance()
-            val module = py.getModule("ebook_converter_lib")
-            val convertedFiles = mutableListOf<File>()
-            var failCount = 0
-
-            for (i in uris.indices) {
-                // Compose snapshot state is safe to write from the IO thread
-                status = "Converting... $i/${uris.size} done"
-                val uri = uris[i]
-                val fileName = fileNames[i]
-                val currentOutName = "${fileName.substringBeforeLast(".")}.$outputFormat"
-                val tmpIn = copyUriToInternal(context, uri, fileName)
-                val tmpOut = File(context.filesDir, currentOutName)
-
-                val pyArgs = mutableListOf<Any>(tmpIn.absolutePath, tmpOut.absolutePath)
-                pyArgs.addAll(buildExtraArgs())
-
-                val result = module.callAttr("convert", *pyArgs.toTypedArray())
-                val success = result.callAttr("__getitem__", "success").toBoolean()
-
-                if (success && tmpOut.exists() && tmpOut.length() > 0) {
-                    convertedFiles += tmpOut
-                } else {
-                    failCount++
-                    tmpOut.delete()
-                }
-
-                tmpIn.delete()
-            }
-
-            if (convertedFiles.isNotEmpty()) {
-                internalBatchFiles = convertedFiles
-                if (failCount == 0) {
-                    "Done (${convertedFiles.size} books converted) — choose directory to save"
-                } else {
-                    "Done (${convertedFiles.size} converted, $failCount failed) — choose directory to save"
-                }
-            } else {
-                "Error: All $failCount conversions failed"
-            }
-        } catch (e: Exception) {
-            "Error: ${e.message}"
-        }
-    }
-
-    private fun copyUriToInternal(context: android.content.Context, uri: Uri, fileName: String): File {
-        val tmp = File(context.filesDir, "$fileName.tmp")
-        val target = File(context.filesDir, fileName)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            tmp.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        tmp.renameTo(target)
-        return target
     }
 }

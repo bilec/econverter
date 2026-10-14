@@ -1,0 +1,277 @@
+package com.econverter.app
+
+import android.graphics.Rect
+import android.net.Uri
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+import javax.xml.parsers.DocumentBuilderFactory
+
+@RunWith(AndroidJUnit4::class)
+class ConversionWorkerTest {
+    @get:Rule
+    val composeRule = createAndroidComposeRule<MainActivity>()
+
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test
+    fun aboutDialogIsVerticallyCentered() {
+        composeRule.onNodeWithContentDescription("About").performClick()
+        composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.waitForIdle(500, 5_000)
+        val bounds = Rect()
+        automation.rootInActiveWindow.getBoundsInScreen(bounds)
+        val height = context.resources.displayMetrics.heightPixels
+        assertTrue("Dialog should be near screen center: $bounds", bounds.centerY() in (height * 0.4).toInt()..(height * 0.6).toInt())
+    }
+
+    @Test
+    fun backendSettingsControlOutputChoicesAndOptions() {
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("▼ Options").performClick()
+        composeRule.onNodeWithText("Output Profile").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("boko", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Backend: boko").assertIsDisplayed()
+        composeRule.onNodeWithText("Options (Calibre only)").assertDoesNotExist()
+        composeRule.onNodeWithText("▲ Hide Options").assertDoesNotExist()
+        composeRule.onNodeWithText("▼ Options").assertDoesNotExist()
+        composeRule.onNodeWithText("Output Profile").assertDoesNotExist()
+        composeRule.onNodeWithText("Extra arguments").assertDoesNotExist()
+        composeRule.onNodeWithText("Output Format").performClick()
+        composeRule.onNodeWithText("mobi").assertDoesNotExist()
+        composeRule.onNodeWithText("docx").assertDoesNotExist()
+        composeRule.onNodeWithText("md").assertIsDisplayed().performClick()
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Output Profile").assertIsDisplayed()
+        composeRule.onNodeWithText("Output Format").performClick()
+        composeRule.onNodeWithText("kfx").assertDoesNotExist()
+        composeRule.onNodeWithText("md").assertDoesNotExist()
+        composeRule.onNodeWithText("mobi").assertIsDisplayed().performClick()
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Backend: Auto").assertIsDisplayed()
+    }
+
+    @Test
+    fun sameFormatConversionKeepsOutputsNamedLikeTemporaryFiles() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            for (name in listOf("input.epub", "intermediate.epub")) {
+                val source = makeEpub(File(directory, name))
+                val worker = ConversionWorker(context, File(directory, "run-$name"), listOf(Uri.fromFile(source)), listOf(name), "epub", emptyList())
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+                assertTrue(result.status, result.status.startsWith("Done"))
+                assertTrue("Converted $name must still exist", result.files.single().isFile)
+                assertTrue(source.exists())
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun linearizeTablesPreservesCellText() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", listOf("--linearize-tables"))
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertTrue(result.status, result.status.startsWith("Done"))
+            var foundCell = false
+            ZipFile(result.files.single()).use { zip ->
+                for (entry in zip.entries().asSequence().filter { it.name.endsWith(".xhtml") || it.name.endsWith(".html") }) {
+                    val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                    val document = zip.getInputStream(entry).use { factory.newDocumentBuilder().parse(it) }
+                    assertEquals(0, document.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "table").length)
+                    if (document.documentElement.textContent.contains("Cell marker")) foundCell = true
+                }
+            }
+            assertTrue("Table text must survive conversion", foundCell)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun kfxConversionLoadsNativeBackend() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "kfx", emptyList())
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertTrue(result.status, result.status.startsWith("Done"))
+            assertEquals("kfx", result.files.single().extension)
+            assertTrue(result.files.single().length() > 0)
+            assertFalse(File(directory, "run/0/intermediate.epub").exists())
+            assertTrue(source.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun directBokoExportsAllAdvertisedFormatsWithoutCalibreScratch() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            for (format in ConversionBackend.BOKO.outputFormats) {
+                val runDirectory = File(directory, format)
+                val worker = ConversionWorker(context, runDirectory, listOf(Uri.fromFile(source)), listOf(source.name), format, emptyList(), backend = ConversionBackend.BOKO)
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+                assertTrue(result.status, result.status.startsWith("Done"))
+                assertTrue(result.files.single().length() > 0)
+                assertFalse("Direct boko must not initialize Calibre scratch storage", File(runDirectory, "tmp").exists())
+                if (format == "md") assertTrue(result.files.single().readText().contains("Book text."))
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun autoCombinesBackendsForKfxInputAndOutput() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = File(directory, "source.txt").apply { writeText("Chapter 1\n\nBook text.") }
+            val toKfx = ConversionWorker(context, File(directory, "kfx"), listOf(Uri.fromFile(source)), listOf(source.name), "kfx", listOf("--title", "Auto Book"), backend = ConversionBackend.AUTO)
+            val kfx = withTimeout(90_000) { withContext(Dispatchers.Main) { toKfx.run() } }
+            assertTrue(kfx.status, kfx.status.startsWith("Done"))
+            val toMobi = ConversionWorker(context, File(directory, "mobi"), listOf(Uri.fromFile(kfx.files.single())), listOf("source.kfx"), "mobi", listOf("--title", "Updated title"), backend = ConversionBackend.AUTO)
+            val mobi = withTimeout(90_000) { withContext(Dispatchers.Main) { toMobi.run() } }
+            assertTrue(mobi.status, mobi.status.startsWith("Done"))
+            val toEpub = ConversionWorker(context, File(directory, "epub"), listOf(Uri.fromFile(mobi.files.single())), listOf("source.mobi"), "epub", emptyList(), backend = ConversionBackend.BOKO)
+            val epub = withTimeout(90_000) { withContext(Dispatchers.Main) { toEpub.run() } }
+            assertTrue(epub.status, epub.status.startsWith("Done"))
+            ZipFile(epub.files.single()).use { zip ->
+                val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
+                val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                val document = zip.getInputStream(opf).use { factory.newDocumentBuilder().parse(it) }
+                assertEquals("Updated title", document.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "title").item(0).textContent)
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun autoPreservesFilenameDerivedTitle() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = File(directory, "Original.txt").apply { writeText("Book text.") }
+            val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertTrue(result.status, result.status.startsWith("Done"))
+            ZipFile(result.files.single()).use { zip ->
+                val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
+                val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                val document = zip.getInputStream(opf).use { factory.newDocumentBuilder().parse(it) }
+                assertEquals("Original", document.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "title").item(0).textContent)
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun workerRejectsUnsupportedBackendRequests() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val runDirectory = File(directory, "run")
+            val uris = listOf(Uri.fromFile(source))
+            for (worker in listOf(
+                ConversionWorker(context, runDirectory, uris, listOf("source.docx"), "epub", emptyList(), backend = ConversionBackend.BOKO),
+                ConversionWorker(context, runDirectory, uris, listOf("source.epub"), "kfx", emptyList(), backend = ConversionBackend.CALIBRE),
+                ConversionWorker(context, runDirectory, uris, listOf("source.epub"), "epub", listOf("--title", "Unsupported"), backend = ConversionBackend.BOKO),
+            )) {
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+                assertTrue(result.status, result.status.startsWith("Error:"))
+                assertTrue(result.files.isEmpty())
+                assertFalse(runDirectory.exists())
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun cancellingBatchDiscardsCompletedOutputsAndAllowsAnotherRun() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        val existingScratch = engineScratchDirectories()
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val largeSource = makeEpub(File(directory, "large.epub"), 20_000)
+            val runDirectory = File(directory, "run")
+            lateinit var worker: ConversionWorker
+            worker = ConversionWorker(
+                context,
+                runDirectory,
+                listOf(Uri.fromFile(source), Uri.fromFile(largeSource)),
+                listOf(source.name, largeSource.name),
+                "epub",
+                emptyList(),
+            ) { progress -> if (progress.contains("1/2 done")) worker.cancel() }
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertEquals("Cancelled", result.status)
+            assertTrue(result.files.isEmpty())
+            assertFalse(runDirectory.exists())
+            assertTrue(source.exists())
+            assertTrue(largeSource.exists())
+            assertEquals("Engine scratch files must be cleaned up", emptySet<String>(), engineScratchDirectories() - existingScratch)
+
+            val next = ConversionWorker(context, File(directory, "next"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val nextResult = withTimeout(90_000) { withContext(Dispatchers.Main) { next.run() } }
+            assertTrue(nextResult.status, nextResult.status.startsWith("Done"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    private fun engineScratchDirectories(): Set<String> = context.cacheDir.walkTopDown()
+        .filter { it.isDirectory && it.name.contains("_tmp_") }
+        .map { it.absolutePath }.toSet()
+
+    private fun makeEpub(file: File, paragraphs: Int = 1): File {
+        ZipOutputStream(file.outputStream()).use { zip ->
+            val entries = mapOf(
+                "mimetype" to "application/epub+zip",
+                "META-INF/container.xml" to """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""",
+                "content.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uid" version="2.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test Book</dc:title><dc:language>en</dc:language><dc:identifier id="uid">test-book-001</dc:identifier><dc:creator>Test Author</dc:creator></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>""",
+                "chapter.xhtml" to """<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter</title></head><body><h1>Chapter</h1><table><tr><td>Cell marker</td></tr></table>${"<p>Book text.</p>".repeat(paragraphs)}</body></html>""",
+            )
+            for ((name, text) in entries) {
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(text.toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+            }
+        }
+        return file
+    }
+}

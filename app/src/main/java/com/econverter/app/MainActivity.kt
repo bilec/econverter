@@ -10,21 +10,23 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import java.text.DateFormat
 import java.util.Date
 
@@ -32,9 +34,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-        }
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -49,8 +48,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
+    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave
 
     LaunchedEffect(Unit) {
+        vm.loadBackendPreference(context)
         vm.purgeStaleTempFiles(context)
     }
 
@@ -70,8 +71,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         if (uri != null) {
             vm.saveToUri(context, uri)
         } else {
-            vm.pendingSave = false
-            vm.status = "Save cancelled"
+            vm.discardPendingSave()
         }
     }
 
@@ -79,8 +79,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         if (uri != null) {
             vm.saveToUri(context, uri)
         } else {
-            vm.pendingSave = false
-            vm.status = "Save cancelled"
+            vm.discardPendingSave()
         }
     }
 
@@ -98,12 +97,19 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     if (showAbout) {
         AboutDialog(onDismiss = { showAbout = false })
     }
+    var showSettings by remember { mutableStateOf(false) }
+    if (showSettings) {
+        BackendSettingsDialog(vm.backend, { vm.selectBackend(it, context) }, { showSettings = false })
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("eBook Converter") },
                 actions = {
+                    IconButton(onClick = { showSettings = true }, enabled = canEdit) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
                     IconButton(onClick = { showAbout = true }) {
                         Icon(Icons.Default.Info, contentDescription = "About")
                     }
@@ -119,7 +125,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
+            Button(onClick = { filePicker.launch(arrayOf("*/*")) }, enabled = canEdit) {
                 Text("Select eBooks")
             }
 
@@ -130,19 +136,28 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 } else {
                     Text("Input: ${vm.inputFileName}", style = MaterialTheme.typography.bodyMedium)
                 }
+                TextButton(onClick = vm::clearSelection, enabled = canEdit) {
+                    Text("Clear all")
+                }
+            }
+            if (vm.unsupportedInputFileNames.isNotEmpty()) {
+                Text("Not supported by ${vm.backend.label}: ${vm.unsupportedInputFileNames.joinToString(", ")}", color = MaterialTheme.colorScheme.error)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            FormatDropdown("Output Format", vm.outputFormat, vm.outputFormats) { vm.outputFormat = it }
+            Text("Backend: ${vm.backend.label}", style = MaterialTheme.typography.labelMedium)
+            FormatDropdown("Output Format", vm.outputFormat, vm.outputFormats, enabled = canEdit) { vm.outputFormat = it }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             var showOptions by remember { mutableStateOf(false) }
-            TextButton(onClick = { showOptions = !showOptions }) {
-                Text(if (showOptions) "▲ Hide Options" else "▼ Options")
+            if (vm.backend != ConversionBackend.BOKO) {
+                TextButton(onClick = { showOptions = !showOptions }, enabled = canEdit) {
+                    Text(if (showOptions) "▲ Hide Options" else "▼ Options")
+                }
             }
-            if (showOptions) {
+            if (showOptions && vm.backend != ConversionBackend.BOKO) {
                 FormatDropdown("Output Profile", vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
                 if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -228,10 +243,18 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = { vm.convert(context) },
-                enabled = vm.hasSelection && !vm.isConverting,
+                onClick = { if (vm.isConverting) vm.cancelConversion() else vm.convert(context) },
+                enabled = (vm.isConverting || vm.canConvert) && !vm.isCancelling && !vm.isSaving && !vm.pendingSave,
             ) {
-                Text(if (vm.isConverting) "Converting..." else "Convert")
+                Text(
+                    if (vm.isCancelling) {
+                        "Cancelling..."
+                    } else if (vm.isConverting) {
+                        "Cancel"
+                    } else {
+                        "Convert"
+                    },
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -257,8 +280,12 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 }
                 if (showHistory) {
                     vm.history.asReversed().forEach { entry ->
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                            Text("${entry.fileName} → ${entry.outputFormat}", style = MaterialTheme.typography.bodyMedium)
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable(enabled = canEdit, onClickLabel = "Select books") { vm.selectHistory(entry) }
+                                .padding(vertical = 12.dp),
+                        ) {
+                            Text("${entry.fileName} → ${entry.outputFormat} (${entry.backend.label})", style = MaterialTheme.typography.bodyMedium)
                             Text(
                                 "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status}",
                                 style = MaterialTheme.typography.bodySmall,
@@ -270,6 +297,37 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
             }
         }
     }
+}
+
+@Composable
+private fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (ConversionBackend) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Conversion backend") },
+        text = {
+            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                ConversionBackend.entries.forEach { option ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .selectable(selected = backend == option, role = Role.RadioButton, onClick = { onSelect(option) })
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        RadioButton(selected = backend == option, onClick = null)
+                        Column(Modifier.weight(1f)) {
+                            Text(option.label, style = MaterialTheme.typography.titleSmall)
+                            Text(option.description, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Text("Input: ${backend.inputFormats.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                Text("Output: ${backend.outputFormats.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable
@@ -310,18 +368,19 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 // ponytail: tiny composable helpers to reduce repetition in the options section
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormatDropdown(label: String, value: String, options: List<String>, onSelect: (String) -> Unit) {
+private fun FormatDropdown(label: String, value: String, options: List<String>, enabled: Boolean = true, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = enabled),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(text = { Text(option) }, onClick = {
                     onSelect(option)
@@ -356,6 +415,7 @@ private fun reportOnGitHub(context: android.content.Context, vm: ConverterViewMo
         appendLine("**Error:** ${vm.status}")
         appendLine("**Input file:** ${vm.inputFileName}")
         appendLine("**Output format:** ${vm.outputFormat}")
+        appendLine("**Backend:** ${vm.backend.label}")
         appendLine("**Output profile:** ${vm.outputProfile}")
         appendLine("**Device:** ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("**Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")

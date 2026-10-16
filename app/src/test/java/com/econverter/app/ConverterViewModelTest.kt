@@ -47,19 +47,22 @@ class ConverterViewModelTest {
 
         try {
             for (extension in vm.outputFormats + listOf("unknown", "EPUB", "part.epub", "")) {
-                val suffix = if (extension.isEmpty()) "" else ".$extension"
-                val source = File(sourceDirectory, "book$suffix").apply { writeText("converted") }
-                File(destination, "book$suffix").writeText("original")
-                File(destination, "book(1)$suffix").writeText("previous")
+                destination.listFiles().orEmpty().forEach { assertTrue(it.delete()) }
+                val sourceName = if (extension.isEmpty()) "book" else "book.$extension"
+                val source = File(sourceDirectory, sourceName).apply { writeText("converted") }
+                val baseName = source.nameWithoutExtension
+                val suffix = if (source.extension.isEmpty()) "" else ".${source.extension}"
+                File(destination, source.name).writeText("original")
+                File(destination, "$baseName(1)$suffix").writeText("previous")
 
-                assertTrue(vm.saveToDirectoryUri(context, treeUri, listOf(source)))
-                assertEquals("converted", File(destination, "book(2)$suffix").readText())
+                assertTrue("Single save failed for '$extension'", vm.saveToDirectoryUri(context, treeUri, listOf(source)))
+                assertEquals("converted", File(destination, "$baseName(2)$suffix").readText())
 
                 assertTrue(vm.saveToDirectoryUri(context, treeUri, listOf(source, source)))
-                assertEquals("converted", File(destination, "book(3)$suffix").readText())
-                assertEquals("converted", File(destination, "book(4)$suffix").readText())
-                assertEquals("original", File(destination, "book$suffix").readText())
-                assertEquals("previous", File(destination, "book(1)$suffix").readText())
+                assertEquals("converted", File(destination, "$baseName(3)$suffix").readText())
+                assertEquals("converted", File(destination, "$baseName(4)$suffix").readText())
+                assertEquals("original", File(destination, source.name).readText())
+                assertEquals("previous", File(destination, "$baseName(1)$suffix").readText())
             }
         } finally {
             sourceDirectory.deleteRecursively()

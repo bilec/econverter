@@ -20,20 +20,27 @@
 
 | Path | Purpose |
 |------|---------|
-| [app/src/main/java/com/econverter/app/MainActivity.kt](app/src/main/java/com/econverter/app/MainActivity.kt) | Entry Activity, initializes Python, sets Compose theme, handles SAF file pickers. |
+| [app/src/main/java/com/econverter/app/MainActivity.kt](app/src/main/java/com/econverter/app/MainActivity.kt) | Entry Activity, sets Compose theme, handles SAF file pickers. |
 | [app/src/main/java/com/econverter/app/ConverterViewModel.kt](app/src/main/java/com/econverter/app/ConverterViewModel.kt) | State container, file input/output handling, coroutine execution for conversion. |
-| [app/build.gradle.kts](app/build.gradle.kts) | Configures Chaquopy, Python 3.11, and the pinned `ebook-converter-lib` release. |
+| [app/src/main/java/com/econverter/app/ConversionBackend.kt](app/src/main/java/com/econverter/app/ConversionBackend.kt) | Backend descriptions and accepted input/output capabilities. |
+| [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Bound conversion process and cancellable Binder client. |
+| [app/build.gradle.kts](app/build.gradle.kts) | Configures Chaquopy, the pinned Python engine, and the external boko Android AAR. |
+| [settings.gradle.kts](settings.gradle.kts) | Optional `bokoBindingsDir` composite-build substitution for local library development. |
 
 ## Primary Data Flows
 
 1. **Input File Selection**:
-   User selects file via Storage Access Framework (`OpenDocument`) → `MainActivity.kt` passes Uri to `ConverterViewModel.kt` → copied to temporary file in app storage.
+   User selects files via Storage Access Framework (`OpenMultipleDocuments`) → `MainActivity.kt` passes Uris to `ConverterViewModel.kt`. History retains selections for the current session; Clear all removes only the selection.
 
 2. **Conversion Execution**:
-   User configures options and taps Convert → `ConverterViewModel.kt` builds CLI args → calls `ebook_converter_lib.convert()` via Chaquopy → `Plumber.run()` converts e-book → output saved to local app cache.
+   User taps Convert → `ConverterViewModel.kt` snapshots the request → `ConversionService.kt` copies inputs and runs Chaquopy in the private `:conversion` process → outputs remain in a per-run directory under app storage. Cancel stops the worker and discards all outputs from the current batch.
+
+   Settings selects Auto, Calibre, or boko and filters format choices. Direct boko skips Python. Auto normalizes KFX inputs with boko, applies conversion options through Calibre, and uses boko for KFX/Markdown output via intermediate EPUBs.
+
+   Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 
 3. **Output File Saving**:
-   User selects target location via Storage Access Framework (`CreateDocument`) → `ConverterViewModel.kt` copies generated output file to target Uri.
+   User selects target location via Storage Access Framework (`CreateDocument`) → `ConverterViewModel.kt` copies generated output file to target Uri. Single-file saves resolve the MIME type from the output filename at launch, with an explicit EPUB mapping and a binary fallback for unknown extensions. The storage provider controls duplicate naming.
 
 ## Omitted Generated / Build Paths
 

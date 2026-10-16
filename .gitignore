@@ -28,6 +28,8 @@
 
 # kotlin source
 !/app/src/main/java/**/*.kt
+!/app/src/test/java/**/*.kt
+!/app/src/androidTest/java/**/*.kt
 
 # fdroid metadata
 !/metadata/**/*.yml

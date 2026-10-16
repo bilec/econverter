@@ -11,10 +11,12 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 
 ## Architecture
 
-- **Single Module Android App**: `app/` contains the Kotlin UI only; the Python engine ships as a wheel.
+- **Single Module Android App**: `app/` contains Kotlin UI and worker-process integration; the Python engine ships as a wheel.
 - **Kotlin UI / ViewModel**: `MainActivity.kt` renders Compose UI (`ConverterScreen`), `ConverterViewModel.kt` holds state and manages file picking/saving via Storage Access Framework.
-- **Python Bridge**: `ConverterViewModel.kt` launches coroutines calling `ebook_converter_lib.convert()` / `check_deps_str()` via Chaquopy.
+- **Python Bridge**: `ConversionService.kt` calls `ebook_converter_lib.convert()` in the private `:conversion` process. Cancellation kills that process before removing its run directory.
 - **Conversion Engine**: the packaged bridge forwards parameters to Calibre's `Plumber` conversion pipeline.
+- **Backends**: `ConversionBackend.kt` owns accepted input/output formats. Settings persists Auto/Calibre/boko selection; the worker validates the snapshotted request. Direct boko skips Python. Auto uses intermediate EPUBs for KFX inputs and KFX/Markdown outputs, applying options through Calibre.
+- **boko Library**: the app depends on `io.github.bilec:boko-android`, pinned by `BOKO_ANDROID_VERSION`. JNI and Rust live in the separate `boko-bindings` project.
 
 ## Developer Commands
 
@@ -43,7 +45,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 ## Documentation Maintenance
 
 - Keep `AGENTS.md` and `CODEBASE_MAP.md` up to date whenever architecture, entrypoints, or conventions change.
-- When bumping `EBOOK_CONVERTER_LIB_VERSION`, sync the input format list in `ConverterViewModel.inputFormats`, [README.md](README.md), and [fastlane full_description.txt](fastlane/metadata/android/en-US/full_description.txt).
+- When bumping an engine version, sync its formats in `ConversionBackend.kt`, [README.md](README.md), and [fastlane full_description.txt](fastlane/metadata/android/en-US/full_description.txt).
 
 ## Domain Glossary
 

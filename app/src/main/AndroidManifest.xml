@@ -8,6 +8,10 @@
         android:label="EbookConverter"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        <service
+            android:name=".ConversionService"
+            android:exported="false"
+            android:process=":conversion" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

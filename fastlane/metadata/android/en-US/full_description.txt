@@ -2,8 +2,13 @@ EbookConverter wraps gryf/ebook-converter (a Calibre fork) to run natively on An
 
 Features:
 - Convert between popular ebook formats (epub, mobi, azw3, docx, fb2, …) directly on your phone
-- Input: epub, mobi, azw3, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, md, markdown, pdf
-- Output: epub, mobi, azw3, docx, fb2, html, htmlz, lrf, oeb, txt, txtz
+- Auto input: epub, mobi, azw3, docx, odt, fb2, html, htmlz, lrf, pdb, rtf, txt, md, markdown, pdf, kfx
+- Auto output: epub, kfx, mobi, azw3, docx, fb2, htmlz, lrf, md, txt, txtz
+- Settings for Auto, Calibre, or direct boko conversion, with backend-specific format choices
+- Auto combines Calibre and boko through intermediate EPUBs for KFX input and KFX/Markdown output
+- Direct boko input: epub, kfx, azw3, mobi; output: epub, kfx, azw3, md
+- Cancel conversions and discard temporary batch outputs without changing original books
+- Clear all selected books or tap session history to select them again
 - Output profiles for Kindle, Kobo, Nook, iPad, and generic e-ink devices
 - Metadata editing (title, authors, publisher)
 - Font size and margin controls
@@ -13,5 +18,6 @@ Features:
 Limitations:
 - PDF input supports text-based PDFs only (scanned PDFs need OCR, unavailable on Android)
 - PDF output not supported
+- Calibre mode has no KFX input or KFX/Markdown output; direct boko mode has no Calibre conversion options
 
 Licensed under GPL-3.0.

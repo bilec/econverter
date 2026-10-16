@@ -31,13 +31,16 @@ class ConverterViewModelTest {
         val destination = File(context.cacheDir, "save-test-destination").apply { mkdirs() }
         val authority = "com.econverter.app.save-test"
         val provider = SaveTestDocumentsProvider(destination, authority, shadowOf(context.contentResolver))
-        provider.attachInfo(context, ProviderInfo().apply {
-            this.authority = authority
-            exported = true
-            grantUriPermissions = true
-            readPermission = Manifest.permission.MANAGE_DOCUMENTS
-            writePermission = Manifest.permission.MANAGE_DOCUMENTS
-        })
+        provider.attachInfo(
+            context,
+            ProviderInfo().apply {
+                this.authority = authority
+                exported = true
+                grantUriPermissions = true
+                readPermission = Manifest.permission.MANAGE_DOCUMENTS
+                writePermission = Manifest.permission.MANAGE_DOCUMENTS
+            },
+        )
         ShadowContentResolver.registerProviderInternal(authority, provider)
         val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
         val vm = ConverterViewModel()

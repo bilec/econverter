@@ -225,7 +225,8 @@ class ConverterViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val count = if (batch) internalBatchFiles.size else 1
             val result = try {
-                val saved = if (batch) saveBatchToDirectoryUri(context, uri) else saveSingleToUri(context, uri)
+                val files = if (batch) internalBatchFiles else listOfNotNull(internalOutputFile)
+                val saved = saveToDirectoryUri(context, uri, files)
                 if (!saved) {
                     "Error: could not write file(s)"
                 } else if (batch) {
@@ -245,16 +246,8 @@ class ConverterViewModel : ViewModel() {
         }
     }
 
-    private fun saveSingleToUri(context: android.content.Context, uri: Uri): Boolean {
-        val file = internalOutputFile ?: return false
-        return context.contentResolver.openOutputStream(uri)?.use { output ->
-            file.inputStream().use { input -> input.copyTo(output) }
-            true
-        } ?: false
-    }
-
-    private fun saveBatchToDirectoryUri(context: android.content.Context, dirUri: Uri): Boolean {
-        if (internalBatchFiles.isEmpty()) return false
+    internal fun saveToDirectoryUri(context: android.content.Context, dirUri: Uri, files: List<File>): Boolean {
+        if (files.isEmpty()) return false
         val treeId = DocumentsContract.getTreeDocumentId(dirUri)
         val parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(dirUri, treeId)
         val childDocumentsUri = DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, treeId)
@@ -273,7 +266,7 @@ class ConverterViewModel : ViewModel() {
         }
         var successCount = 0
 
-        for (file in internalBatchFiles) {
+        for (file in files) {
             val ext = file.extension
             val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
             val targetName = uniqueFileName(file.name, existingNames)

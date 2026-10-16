@@ -1,18 +1,69 @@
 package com.econverter.app
 
+import android.Manifest
+import android.content.pm.ProviderInfo
+import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
+import android.provider.DocumentsProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ConverterViewModelTest {
+    @Test
+    @Config(sdk = [25])
+    fun singleAndBatchSavesNumberDuplicatesBeforeEveryExtensionWithoutOverwriting() {
+        val context = RuntimeEnvironment.getApplication()
+        val sourceDirectory = File(context.cacheDir, "save-test-source").apply { mkdirs() }
+        val destination = File(context.cacheDir, "save-test-destination").apply { mkdirs() }
+        val authority = "com.econverter.app.save-test"
+        val provider = SaveTestDocumentsProvider(destination, authority, shadowOf(context.contentResolver))
+        provider.attachInfo(context, ProviderInfo().apply {
+            this.authority = authority
+            exported = true
+            grantUriPermissions = true
+            readPermission = Manifest.permission.MANAGE_DOCUMENTS
+            writePermission = Manifest.permission.MANAGE_DOCUMENTS
+        })
+        ShadowContentResolver.registerProviderInternal(authority, provider)
+        val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
+        val vm = ConverterViewModel()
+
+        try {
+            for (extension in vm.outputFormats + listOf("unknown", "EPUB", "part.epub", "")) {
+                val suffix = if (extension.isEmpty()) "" else ".$extension"
+                val source = File(sourceDirectory, "book$suffix").apply { writeText("converted") }
+                File(destination, "book$suffix").writeText("original")
+                File(destination, "book(1)$suffix").writeText("previous")
+
+                assertTrue(vm.saveToDirectoryUri(context, treeUri, listOf(source)))
+                assertEquals("converted", File(destination, "book(2)$suffix").readText())
+
+                assertTrue(vm.saveToDirectoryUri(context, treeUri, listOf(source, source)))
+                assertEquals("converted", File(destination, "book(3)$suffix").readText())
+                assertEquals("converted", File(destination, "book(4)$suffix").readText())
+                assertEquals("original", File(destination, "book$suffix").readText())
+                assertEquals("previous", File(destination, "book(1)$suffix").readText())
+            }
+        } finally {
+            sourceDirectory.deleteRecursively()
+            destination.deleteRecursively()
+        }
+    }
+
     @Test
     fun kfxIsAvailableAsAnOutputFormat() {
         assertTrue(ConverterViewModel().outputFormats.contains("kfx"))
@@ -138,5 +189,37 @@ class ConverterViewModelTest {
         assertFalse(directory.exists())
         assertEquals("source", original.readText())
         original.delete()
+    }
+
+    private class SaveTestDocumentsProvider(
+        private val directory: File,
+        private val authority: String,
+        private val resolver: ShadowContentResolver,
+    ) : DocumentsProvider() {
+        override fun onCreate() = true
+
+        override fun queryRoots(projection: Array<out String>?): Cursor = MatrixCursor(emptyArray<String>())
+
+        override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor =
+            MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
+                addRow(arrayOf(documentId))
+            }
+
+        override fun queryChildDocuments(parentDocumentId: String, projection: Array<out String>?, sortOrder: String?): Cursor =
+            MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
+                directory.listFiles().orEmpty().forEach { addRow(arrayOf(it.name)) }
+            }
+
+        override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
+            val file = File(directory, displayName)
+            check(file.createNewFile()) { "File already exists: $displayName" }
+            val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
+            val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, displayName)
+            resolver.registerOutputStream(uri, file.outputStream())
+            return displayName
+        }
+
+        override fun openDocument(documentId: String, mode: String, signal: CancellationSignal?): ParcelFileDescriptor =
+            ParcelFileDescriptor.open(File(directory, documentId), ParcelFileDescriptor.parseMode(mode))
     }
 }

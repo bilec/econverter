@@ -40,7 +40,7 @@
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 
 3. **Output File Saving**:
-   User selects target location via Storage Access Framework (`CreateDocument`) → `ConverterViewModel.kt` copies generated output file to target Uri.
+   User selects target location via Storage Access Framework (`CreateDocument`) → `ConverterViewModel.kt` copies generated output file to target Uri. Single-file saves resolve the MIME type from the output filename at launch, with an explicit EPUB mapping and a binary fallback for unknown extensions. The storage provider controls duplicate naming.
 
 ## Omitted Generated / Build Paths
 

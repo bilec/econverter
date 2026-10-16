@@ -70,14 +70,6 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         }
     }
 
-    val singleSavePicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
-        if (uri != null) {
-            vm.saveToUri(context, uri)
-        } else {
-            vm.discardPendingSave()
-        }
-    }
-
     val dirSavePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             vm.saveToUri(context, uri)
@@ -88,11 +80,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
     LaunchedEffect(vm.pendingSave) {
         if (vm.pendingSave) {
-            if (vm.isBatch) {
-                dirSavePicker.launch(null)
-            } else {
-                singleSavePicker.launch(vm.getOutputFileName())
-            }
+            dirSavePicker.launch(null)
         }
     }
 

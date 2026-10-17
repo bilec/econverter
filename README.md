@@ -52,6 +52,12 @@ Requires JDK 17+, Android SDK platform 35, and Python 3.11. Android Studio is
 optional. Python must be available as `python3.11` on PATH, or set
 `CHAQUOPY_BUILD_PYTHON` to its absolute executable path.
 
+The [F-Droid recipe](metadata/com.econverter.app.yml) pins host CPython to
+`v3.11.17`. Its [srclib preparation](srclibs/CPython.yml) compiles Python and
+checks the required modules; each ABI recipe points Gradle at that executable.
+Submit recipe and srclib changes to `fdroid/fdroiddata` as well: F-Droid does
+not automatically use these app-repository copies.
+
 Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION` and
 `BOKO_ANDROID_VERSION` in [gradle.properties](gradle.properties).
 

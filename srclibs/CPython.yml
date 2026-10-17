@@ -1,2 +1,7 @@
 RepoType: git
 Repo: https://github.com/python/cpython.git
+
+Prepare:
+  - ./configure --with-ensurepip=no
+  - make -j$(nproc)
+  - ./python -c 'import sys, ssl, zlib, bz2, lzma, ctypes; assert sys.version_info[:2] == (3, 11)'

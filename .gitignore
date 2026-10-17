@@ -33,6 +33,7 @@
 
 # fdroid metadata
 !/metadata/**/*.yml
+!/srclibs/CPython.yml
 
 # fastlane metadata
 !/fastlane/metadata/**/*.jpg

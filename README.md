@@ -53,8 +53,9 @@ optional. Python must be available as `python3.11` on PATH, or set
 `CHAQUOPY_BUILD_PYTHON` to its absolute executable path.
 
 The [F-Droid recipe](metadata/com.econverter.app.yml) pins host CPython to
-`v3.11.17`. Its [srclib preparation](srclibs/CPython.yml) compiles Python and
-checks the required modules; each ABI recipe points Gradle at that executable.
+`v3.11.17` using F-Droid's shared [cpython srclib](srclibs/cpython.yml).
+Each ABI recipe compiles Python, checks the required modules, and points
+Gradle at that executable.
 Submit recipe and srclib changes to `fdroid/fdroiddata` as well: F-Droid does
 not automatically use these app-repository copies.
 

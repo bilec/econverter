@@ -46,7 +46,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 
 - Keep `AGENTS.md` and `CODEBASE_MAP.md` up to date whenever architecture, entrypoints, or conventions change.
 - When bumping an engine version, sync its formats in `ConversionBackend.kt`, [README.md](README.md), and [fastlane full_description.txt](fastlane/metadata/android/en-US/full_description.txt).
-- When changing F-Droid builds, submit [metadata/com.econverter.app.yml](metadata/com.econverter.app.yml) and [srclibs/CPython.yml](srclibs/CPython.yml) changes to `fdroid/fdroiddata`; it does not use the app-repository copies automatically. The recipe builds pinned host Python to match Chaquopy's embedded major/minor version.
+- When changing F-Droid builds, submit [metadata/com.econverter.app.yml](metadata/com.econverter.app.yml) and any [srclibs/cpython.yml](srclibs/cpython.yml) changes to `fdroid/fdroiddata`; it does not use the app-repository copies automatically. Use its existing lowercase `cpython` srclib and keep Python compilation in the app recipe, since the srclib is shared with other apps. The recipe builds pinned host Python to match Chaquopy's embedded major/minor version.
 
 ## Domain Glossary
 

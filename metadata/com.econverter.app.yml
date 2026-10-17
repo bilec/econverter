@@ -157,9 +157,15 @@ Builds:
     gradle:
       - yes
     srclibs:
-      - CPython@v3.11.17
+      - cpython@v3.11.17
     prebuild:
-      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$CPython$$)/python\")|" build.gradle.kts
+      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$cpython$$)/python\")|" build.gradle.kts
+    build:
+      - pushd $$cpython$$
+      - ./configure --with-ensurepip=no
+      - make -j$(nproc)
+      - ./python -c 'import sys, ssl, zlib, bz2, lzma, ctypes; assert sys.version_info[:2] == (3, 11)'
+      - popd
     output: build/outputs/apk/release/app-armeabi-v7a-release-unsigned.apk
     ndk: r26b
 
@@ -173,9 +179,15 @@ Builds:
     gradle:
       - yes
     srclibs:
-      - CPython@v3.11.17
+      - cpython@v3.11.17
     prebuild:
-      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$CPython$$)/python\")|" build.gradle.kts
+      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$cpython$$)/python\")|" build.gradle.kts
+    build:
+      - pushd $$cpython$$
+      - ./configure --with-ensurepip=no
+      - make -j$(nproc)
+      - ./python -c 'import sys, ssl, zlib, bz2, lzma, ctypes; assert sys.version_info[:2] == (3, 11)'
+      - popd
     output: build/outputs/apk/release/app-x86_64-release-unsigned.apk
     ndk: r26b
 
@@ -189,9 +201,15 @@ Builds:
     gradle:
       - yes
     srclibs:
-      - CPython@v3.11.17
+      - cpython@v3.11.17
     prebuild:
-      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$CPython$$)/python\")|" build.gradle.kts
+      - sed -i "s|getOrElse(\"python3.11\")|getOrElse(\"$(realpath $$cpython$$)/python\")|" build.gradle.kts
+    build:
+      - pushd $$cpython$$
+      - ./configure --with-ensurepip=no
+      - make -j$(nproc)
+      - ./python -c 'import sys, ssl, zlib, bz2, lzma, ctypes; assert sys.version_info[:2] == (3, 11)'
+      - popd
     output: build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk
     ndk: r26b
 

@@ -160,8 +160,7 @@ Builds:
     output: build/outputs/apk/release/app-armeabi-v7a-release-unsigned.apk
     srclibs:
       - cpython@v3.11.17
-    prebuild: sed -i "s|getOrElse("python3.11")|getOrElse("$(realpath $$cpython$$)/python")|"
-      build.gradle.kts
+    prebuild: sed -i "s|python3.11|$(realpath $$cpython$$)/python|" build.gradle.kts
     build:
       - pushd $$cpython$$
       - ./configure --with-ensurepip=no
@@ -184,8 +183,7 @@ Builds:
     output: build/outputs/apk/release/app-x86_64-release-unsigned.apk
     srclibs:
       - cpython@v3.11.17
-    prebuild: sed -i "s|getOrElse("python3.11")|getOrElse("$(realpath $$cpython$$)/python")|"
-      build.gradle.kts
+    prebuild: sed -i "s|python3.11|$(realpath $$cpython$$)/python|" build.gradle.kts
     build:
       - pushd $$cpython$$
       - ./configure --with-ensurepip=no
@@ -208,8 +206,7 @@ Builds:
     output: build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk
     srclibs:
       - cpython@v3.11.17
-    prebuild: sed -i "s|getOrElse("python3.11")|getOrElse("$(realpath $$cpython$$)/python")|"
-      build.gradle.kts
+    prebuild: sed -i "s|python3.11|$(realpath $$cpython$$)/python|" build.gradle.kts
     build:
       - pushd $$cpython$$
       - ./configure --with-ensurepip=no

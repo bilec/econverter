@@ -4,6 +4,7 @@ val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt
 val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
 val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val ebookConverterLibVersion = providers.gradleProperty("EBOOK_CONVERTER_LIB_VERSION").get()
+val pypdfium2Version = providers.gradleProperty("PYPDFIUM2_VERSION").get()
 val bokoAndroidVersion = providers.gradleProperty("BOKO_ANDROID_VERSION").get()
 
 plugins {
@@ -98,7 +99,10 @@ chaquopy {
         extractPackages("ebook_converter")
         pip {
             options("--find-links", "$projectDir/libs")
+            // PyPI has pypdfium2 Android wheels for arm only; x86_64 comes from ebook-converter-lib releases
+            options("--find-links", "https://github.com/bilec/ebook-converter-lib/releases/expanded_assets/pypdfium2-$pypdfium2Version-android")
             install("ebook-converter-lib==$ebookConverterLibVersion")
+            install("pypdfium2==$pypdfium2Version")
         }
     }
 }

@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -200,6 +202,26 @@ class ConversionWorkerTest {
     }
 
     @Test
+    fun pdfInputKeepsTitleOutlineAndCover() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makePdf(File(directory, "source.pdf"))
+            val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertTrue(result.status, result.status.startsWith("Done"))
+            ZipFile(result.files.single()).use { zip ->
+                fun text(suffix: String) = zip.getInputStream(zip.entries().asSequence().first { it.name.endsWith(suffix) }).reader().readText()
+                val opf = text(".opf")
+                assertTrue(opf, opf.contains("PDF Title</dc:title>"))
+                assertTrue(opf, opf.contains("name=\"cover\""))
+                assertTrue(text(".ncx").contains("Chapter 3"))
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun workerRejectsUnsupportedBackendRequests() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -257,6 +279,20 @@ class ConversionWorkerTest {
     private fun engineScratchDirectories(): Set<String> = context.cacheDir.walkTopDown()
         .filter { it.isDirectory && it.name.contains("_tmp_") }
         .map { it.absolutePath }.toSet()
+
+    private fun makePdf(file: File): File {
+        if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+        val canvas = Python.getInstance().getModule("reportlab.pdfgen.canvas").callAttr("Canvas", file.absolutePath)
+        canvas.callAttr("setTitle", "PDF Title")
+        for (number in 1..3) {
+            canvas.callAttr("bookmarkPage", "chapter$number")
+            canvas.callAttr("addOutlineEntry", "Chapter $number", "chapter$number")
+            canvas.callAttr("drawString", 72, 720, "Chapter $number text")
+            canvas.callAttr("showPage")
+        }
+        canvas.callAttr("save")
+        return file
+    }
 
     private fun makeEpub(file: File, paragraphs: Int = 1): File {
         ZipOutputStream(file.outputStream()).use { zip ->

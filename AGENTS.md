@@ -7,6 +7,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 - **UI**: Jetpack Compose (Material3), Kotlin (JVM 17, min API 24, target/compile SDK 35)
 - **Python Runtime**: Chaquopy 16.0.0 (Python 3.11 embedded in Android app)
 - **E-book Engine**: [`ebook-converter-lib`](https://github.com/bilec/ebook-converter-lib), pinned pip dependency, version set by `EBOOK_CONVERTER_LIB_VERSION` in [gradle.properties](gradle.properties)
+- **PDF Engine**: `pypdfium2` (PDFium), pinned by `PYPDFIUM2_VERSION`; must equal the lib's pin. arm wheels come from PyPI, x86_64 from the lib's `pypdfium2-<version>-android` release
 - **Build & Format**: Gradle (Kotlin DSL), Spotless + ktlint
 
 ## Architecture

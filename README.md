@@ -23,7 +23,7 @@ The ebook-converter-lib package's KF8/AZW3 writer module (`ebook_converter.ebook
 
 **Output (Auto):** epub, kfx, mobi, azw3, docx, fb2, htmlz, lrf, md, txt, txtz
 
-> **PDF input supports text-based PDFs.** Scanned PDFs require OCR, which is unavailable on Android.
+> **PDF input supports text-based PDFs.** Text, embedded images, bookmarks (as table of contents), title and a first-page cover are read with PDFium. Scanned PDFs require OCR, which is unavailable on Android.
 
 Choose the conversion backend in **Settings**. The choice is remembered, and
 accepted inputs and output choices change with the backend:
@@ -59,8 +59,11 @@ Gradle at that executable.
 Submit recipe and srclib changes to `fdroid/fdroiddata` as well: F-Droid does
 not automatically use these app-repository copies.
 
-Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION` and
+Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION`, `PYPDFIUM2_VERSION` and
 `BOKO_ANDROID_VERSION` in [gradle.properties](gradle.properties).
+`PYPDFIUM2_VERSION` must match ebook-converter-lib's pin. PyPI has no x86_64 Android
+wheel for it, so the build also reads the `pypdfium2-<version>-android` release of
+ebook-converter-lib.
 
 Build a debug APK:
 

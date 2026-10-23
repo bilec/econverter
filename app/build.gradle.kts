@@ -4,11 +4,11 @@ val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt
 val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
 val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val ebookConverterLibVersion = providers.gradleProperty("EBOOK_CONVERTER_LIB_VERSION").get()
+val pypdfium2Version = providers.gradleProperty("PYPDFIUM2_VERSION").get()
 val bokoAndroidVersion = providers.gradleProperty("BOKO_ANDROID_VERSION").get()
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.chaquo.python")
     id("com.diffplug.spotless")
@@ -16,12 +16,12 @@ plugins {
 
 android {
     namespace = "com.econverter.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.econverter.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 37
         versionCode = baseVersionCode
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -64,16 +64,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("17"))
     }
 }
 
@@ -96,7 +98,11 @@ chaquopy {
         buildPython(providers.environmentVariable("CHAQUOPY_BUILD_PYTHON").getOrElse("python3.11"))
         extractPackages("ebook_converter")
         pip {
+            options("--find-links", "$projectDir/libs")
+            // PyPI has pypdfium2 Android wheels for arm only; x86_64 comes from ebook-converter-lib releases
+            options("--find-links", "https://github.com/bilec/ebook-converter-lib/releases/expanded_assets/pypdfium2-$pypdfium2Version-android")
             install("ebook-converter-lib==$ebookConverterLibVersion")
+            install("pypdfium2==$pypdfium2Version")
         }
     }
 }

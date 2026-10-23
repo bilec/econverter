@@ -74,6 +74,7 @@ class ConversionWorker(
                 Handler(Looper.getMainLooper()) { message ->
                     when (message.what) {
                         ConversionService.PROGRESS -> if (!cancelled) onProgress(message.data.getString("status").orEmpty())
+
                         ConversionService.DONE -> finish(
                             ConversionResult(
                                 message.data.getString("status") ?: "Error: missing conversion result",
@@ -143,6 +144,7 @@ class ConversionService : Service() {
         Handler(Looper.getMainLooper()) { message ->
             when (message.what) {
                 CANCEL -> Process.killProcess(Process.myPid())
+
                 RUN -> if (!started) {
                     started = true
                     val data = message.data
@@ -212,7 +214,9 @@ class ConversionService : Service() {
                 stream.use { source -> input.outputStream().use { source.copyTo(it) } }
                 when (backend) {
                     ConversionBackend.BOKO -> convertWithBoko(input, output)
+
                     ConversionBackend.CALIBRE -> convertWithCalibre(input, output, args, directory)
+
                     ConversionBackend.AUTO -> {
                         check(stages.mkdir()) { "Could not create conversion staging directory" }
                         val calibreInput = if (input.extension !in ConversionBackend.CALIBRE.inputFormats) {

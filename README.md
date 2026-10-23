@@ -23,7 +23,7 @@ The ebook-converter-lib package's KF8/AZW3 writer module (`ebook_converter.ebook
 
 **Output (Auto):** epub, kfx, mobi, azw3, docx, fb2, htmlz, lrf, md, txt, txtz
 
-> **PDF input supports text-based PDFs.** Scanned PDFs require OCR, which is unavailable on Android.
+> **PDF input supports text-based PDFs.** Text, embedded images, bookmarks (as table of contents), title and a first-page cover are read with PDFium. Scanned PDFs require OCR, which is unavailable on Android.
 
 Choose the conversion backend in **Settings**. The choice is remembered, and
 accepted inputs and output choices change with the backend:
@@ -48,12 +48,19 @@ output format, and backend; history lasts for the current app session.
 
 ## Build
 
-Requires JDK 17+, Android SDK platform 35, and Python 3.11. Android Studio is
+Requires JDK 17+, Android SDK platform 37, and Python 3.11. Android Studio is
 optional. Python must be available as `python3.11` on PATH, or set
 `CHAQUOPY_BUILD_PYTHON` to its absolute executable path.
 
-Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION` and
+For F-Droid release work, initialize the pinned [CPython submodule](.gitmodules)
+with `git submodule update --init cpython`. Normal Android builds use your
+installed Python; they do not compile the submodule.
+
+Engine versions are pinned by `EBOOK_CONVERTER_LIB_VERSION`, `PYPDFIUM2_VERSION` and
 `BOKO_ANDROID_VERSION` in [gradle.properties](gradle.properties).
+`PYPDFIUM2_VERSION` must match ebook-converter-lib's pin. PyPI has no x86_64 Android
+wheel for it, so the build also reads the `pypdfium2-<version>-android` release of
+ebook-converter-lib.
 
 Build a debug APK:
 

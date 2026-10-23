@@ -10,6 +10,8 @@
 !/README.md
 !/AGENTS.md
 !/CODEBASE_MAP.md
+!/.gitmodules
+!/cpython
 !/build.gradle.kts
 !/settings.gradle.kts
 !/gradle.properties
@@ -23,6 +25,9 @@
 !/app/build.gradle.kts
 !/app/src/main/AndroidManifest.xml
 
+# python wheels
+!/app/libs/*.whl
+
 # android resources
 !/app/src/main/res/**/*.xml
 
@@ -33,6 +38,7 @@
 
 # fdroid metadata
 !/metadata/**/*.yml
+!/srclibs/cpython.yml
 
 # fastlane metadata
 !/fastlane/metadata/**/*.jpg

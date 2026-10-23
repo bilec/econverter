@@ -206,15 +206,13 @@ class ConverterViewModelTest {
 
         override fun queryRoots(projection: Array<out String>?): Cursor = MatrixCursor(emptyArray<String>())
 
-        override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor =
-            MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
-                addRow(arrayOf(documentId))
-            }
+        override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor = MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
+            addRow(arrayOf(documentId))
+        }
 
-        override fun queryChildDocuments(parentDocumentId: String, projection: Array<out String>?, sortOrder: String?): Cursor =
-            MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
-                directory.listFiles().orEmpty().forEach { addRow(arrayOf(it.name)) }
-            }
+        override fun queryChildDocuments(parentDocumentId: String, projection: Array<out String>?, sortOrder: String?): Cursor = MatrixCursor(arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
+            directory.listFiles().orEmpty().forEach { addRow(arrayOf(it.name)) }
+        }
 
         override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
             val file = File(directory, displayName)
@@ -225,7 +223,6 @@ class ConverterViewModelTest {
             return displayName
         }
 
-        override fun openDocument(documentId: String, mode: String, signal: CancellationSignal?): ParcelFileDescriptor =
-            ParcelFileDescriptor.open(File(directory, documentId), ParcelFileDescriptor.parseMode(mode))
+        override fun openDocument(documentId: String, mode: String, signal: CancellationSignal?): ParcelFileDescriptor = ParcelFileDescriptor.open(File(directory, documentId), ParcelFileDescriptor.parseMode(mode))
     }
 }

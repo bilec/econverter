@@ -140,9 +140,7 @@ class ConverterViewModel : ViewModel() {
         return ext.isNotEmpty() && ext in inputFormats
     }
 
-    fun getOutputFileName(): String {
-        return internalOutputFile?.name ?: "${inputFileName.substringBeforeLast(".")}.$outputFormat"
-    }
+    fun getOutputFileName(): String = internalOutputFile?.name ?: "${inputFileName.substringBeforeLast(".")}.$outputFormat"
 
     fun convert(context: android.content.Context) {
         if (!hasSelection || isConverting || isSaving || pendingSave) return

@@ -4,9 +4,10 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 
 ## Tech Stack
 
-- **UI**: Jetpack Compose (Material3), Kotlin (JVM 17, min API 24, target/compile SDK 35)
+- **UI**: Jetpack Compose (Material3), Kotlin (JVM 17, min API 24, target/compile SDK 37)
 - **Python Runtime**: Chaquopy 16.0.0 (Python 3.11 embedded in Android app)
 - **E-book Engine**: [`ebook-converter-lib`](https://github.com/bilec/ebook-converter-lib), pinned pip dependency, version set by `EBOOK_CONVERTER_LIB_VERSION` in [gradle.properties](gradle.properties)
+- **PDF Engine**: `pypdfium2` (PDFium), pinned by `PYPDFIUM2_VERSION`; must equal the lib's pin. arm wheels come from PyPI, x86_64 from the lib's `pypdfium2-<version>-android` release
 - **Build & Format**: Gradle (Kotlin DSL), Spotless + ktlint
 
 ## Architecture
@@ -46,6 +47,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 
 - Keep `AGENTS.md` and `CODEBASE_MAP.md` up to date whenever architecture, entrypoints, or conventions change.
 - When bumping an engine version, sync its formats in `ConversionBackend.kt`, [README.md](README.md), and [fastlane full_description.txt](fastlane/metadata/android/en-US/full_description.txt).
+- When changing F-Droid builds, keep drafts outside active metadata until validated; disabled future recipes also affect automatic updates. Submit [metadata/com.econverter.app.yml](metadata/com.econverter.app.yml) changes to `fdroid/fdroiddata`, which does not use app-repository copies automatically. Preserve the historical 1.2.0 recipes and [cpython srclib](srclibs/cpython.yml); their app commit has no submodule, and fdroiddata's srclib is shared with other apps.
 
 ## Domain Glossary
 

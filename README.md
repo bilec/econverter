@@ -48,7 +48,7 @@ output format, and backend; history lasts for the current app session.
 
 ## Build
 
-Requires JDK 17+, Android SDK platform 35, and Python 3.11. Android Studio is
+Requires JDK 17+, Android SDK platform 37, and Python 3.11. Android Studio is
 optional. Python must be available as `python3.11` on PATH, or set
 `CHAQUOPY_BUILD_PYTHON` to its absolute executable path.
 

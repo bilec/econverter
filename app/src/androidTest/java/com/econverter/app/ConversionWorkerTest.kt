@@ -3,10 +3,19 @@ package com.econverter.app
 import android.graphics.Rect
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.Python
@@ -34,6 +43,91 @@ class ConversionWorkerTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
+    fun emptyQueueShowsOutputSettingsAndDisabledConvertAction() {
+        composeRule.onNodeWithText("Your books").assertIsDisplayed()
+        composeRule.onNodeWithText("No books selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Select eBooks").assertIsDisplayed()
+        composeRule.onNodeWithText("Output Format").assertIsDisplayed()
+        composeRule.onNodeWithText("Convert").assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test
+    fun selectedQueueListsBooksAndClearsSelection() {
+        val names = listOf("A very long book title that should wrap without pushing controls off screen.epub", "Second book.epub")
+        composeRule.runOnIdle {
+            val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+            vm.inputUris = names.map { Uri.parse("content://test/$it") }
+            vm.inputFileNames = names
+        }
+        composeRule.onNodeWithText("2 books selected").assertIsDisplayed()
+        names.forEach { composeRule.onNodeWithText(it).performScrollTo().assertIsDisplayed() }
+        composeRule.onNodeWithText("Add eBooks").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Convert").assertIsDisplayed().assertIsEnabled()
+        composeRule.onNodeWithText("Clear all").performScrollTo().performClick()
+        composeRule.onNodeWithText("No books selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Convert").assertIsNotEnabled()
+    }
+
+    @Test
+    fun selectedBooksCanBeRemovedBySwipingInEitherDirection() {
+        val names = listOf("First.epub", "Second.epub", "Third.epub")
+        composeRule.runOnIdle {
+            val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+            vm.inputUris = names.indices.map { Uri.parse("content://test/$it") }
+            vm.inputFileNames = names
+        }
+        composeRule.onNodeWithText(names[0]).performScrollTo().performTouchInput { swipeLeft() }
+        composeRule.onNodeWithText(names[0]).assertDoesNotExist()
+        composeRule.onNodeWithText("2 books selected").assertIsDisplayed()
+        composeRule.onNodeWithText(names[1]).performScrollTo().performTouchInput { swipeRight() }
+        composeRule.onNodeWithText(names[1]).assertDoesNotExist()
+        composeRule.onNodeWithText(names[2]).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(names[2]).performTouchInput { swipeLeft() }
+        composeRule.onNodeWithText("No books selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Convert").assertIsNotEnabled()
+    }
+
+    @Test
+    fun convertActionStaysVisibleWhileScrollingOptions() {
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Conversion options").performScrollTo().performClick()
+        composeRule.onNodeWithText("Advanced").performScrollTo().performClick()
+        composeRule.onNodeWithText("Remove exact text").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Convert").assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test
+    fun optionGroupsStartCollapsedAndRetainEditedValues() {
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Conversion options").performScrollTo().performClick()
+        composeRule.onNodeWithText("Authors").assertDoesNotExist()
+        composeRule.onNodeWithText("Base font size (pt)").assertDoesNotExist()
+        composeRule.onNodeWithText("Top").assertDoesNotExist()
+        composeRule.onNodeWithText("Extra arguments").assertDoesNotExist()
+        composeRule.onNodeWithText("Metadata").performScrollTo().performClick()
+        composeRule.onNodeWithText("Authors").performScrollTo().performTextInput("Test author")
+        composeRule.activityRule.scenario.onActivity { activity ->
+            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                .hideSoftInputFromWindow(activity.window.decorView.windowToken, 0)
+        }
+        composeRule.onNodeWithText("Metadata").performScrollTo().performClick()
+        composeRule.onNodeWithText("Authors").assertDoesNotExist()
+        composeRule.onNodeWithText("Metadata").performScrollTo().performClick()
+        composeRule.onNodeWithText("Authors").performScrollTo().assertTextContains("Test author")
+        composeRule.onNodeWithText("Metadata").performScrollTo().performClick()
+        listOf("Typography" to "Base font size (pt)", "Margins (pt)" to "Top", "Advanced" to "Extra arguments").forEach { (group, field) ->
+            composeRule.onNodeWithText(group).performScrollTo().performClick()
+            composeRule.onNodeWithText(field).performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithText(group).performScrollTo().performClick()
+            composeRule.onNodeWithText(field).assertDoesNotExist()
+        }
+    }
+
+    @Test
     fun aboutDialogIsVerticallyCentered() {
         composeRule.onNodeWithContentDescription("About").performClick()
         composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
@@ -50,18 +144,17 @@ class ConversionWorkerTest {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Close").performClick()
-        composeRule.onNodeWithText("▼ Options").performClick()
-        composeRule.onNodeWithText("Output Profile").assertIsDisplayed()
+        composeRule.onNodeWithText("Conversion options").performScrollTo().performClick()
+        composeRule.onNodeWithText("Output Profile").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("boko", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Close").performClick()
         composeRule.onNodeWithText("Backend: boko").assertIsDisplayed()
         composeRule.onNodeWithText("Options (Calibre only)").assertDoesNotExist()
-        composeRule.onNodeWithText("▲ Hide Options").assertDoesNotExist()
-        composeRule.onNodeWithText("▼ Options").assertDoesNotExist()
+        composeRule.onNodeWithText("Conversion options").assertDoesNotExist()
         composeRule.onNodeWithText("Output Profile").assertDoesNotExist()
         composeRule.onNodeWithText("Extra arguments").assertDoesNotExist()
-        composeRule.onNodeWithText("Output Format").performClick()
+        composeRule.onNodeWithText("Output Format").performScrollTo().performClick()
         composeRule.onNodeWithText("mobi").assertDoesNotExist()
         composeRule.onNodeWithText("docx").assertDoesNotExist()
         composeRule.onNodeWithText("md").assertIsDisplayed().performClick()
@@ -69,8 +162,8 @@ class ConversionWorkerTest {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Close").performClick()
-        composeRule.onNodeWithText("Output Profile").assertIsDisplayed()
-        composeRule.onNodeWithText("Output Format").performClick()
+        composeRule.onNodeWithText("Output Profile").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Output Format").performScrollTo().performClick()
         composeRule.onNodeWithText("kfx").assertDoesNotExist()
         composeRule.onNodeWithText("md").assertDoesNotExist()
         composeRule.onNodeWithText("mobi").assertIsDisplayed().performClick()
@@ -78,7 +171,7 @@ class ConversionWorkerTest {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Close").performClick()
-        composeRule.onNodeWithText("Backend: Auto").assertIsDisplayed()
+        composeRule.onNodeWithText("Backend: Auto").performScrollTo().assertIsDisplayed()
     }
 
     @Test

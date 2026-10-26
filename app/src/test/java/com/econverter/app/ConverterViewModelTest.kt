@@ -145,6 +145,31 @@ class ConverterViewModelTest {
     }
 
     @Test
+    fun removingOneBookKeepsUriAndNamePairsAndHistory() {
+        val vm = ConverterViewModel()
+        val uris = (1..3).map { Uri.parse("content://books/$it") }
+        vm.inputUris = uris
+        vm.inputFileNames = listOf("same.epub", "same.epub", "last.epub")
+        vm.history.add(HistoryEntry("same.epub", "epub", "Done", 1))
+        vm.status = "Selected"
+
+        vm.removeSelectedUri(uris[1])
+
+        assertEquals(listOf(uris[0], uris[2]), vm.inputUris)
+        assertEquals(listOf("same.epub", "last.epub"), vm.inputFileNames)
+        assertEquals("", vm.status)
+        assertEquals(1, vm.history.size)
+        vm.removeSelectedUri(uris[1])
+        assertEquals(2, vm.inputUris.size)
+        vm.removeSelectedUri(uris[0])
+        assertFalse(vm.isBatch)
+        vm.removeSelectedUri(uris[2])
+        assertFalse(vm.hasSelection)
+        assertFalse(vm.canConvert)
+        assertTrue(vm.inputFileNames.isEmpty())
+    }
+
+    @Test
     fun historyRestoresAllBooksAndOutputFormat() {
         val vm = ConverterViewModel()
         val uris = listOf(Uri.parse("content://books/1"), Uri.parse("content://books/2"))
@@ -167,10 +192,12 @@ class ConverterViewModelTest {
         vm.inputFileNames = listOf("first.epub")
         val entry = HistoryEntry("second.epub", "txt", "Done", 1, listOf(Uri.parse("content://books/2")), listOf("second.epub"))
 
-        for (saving in listOf(false, true)) {
-            vm.isConverting = !saving
-            vm.pendingSave = saving
+        for (busyState in 0..2) {
+            vm.isConverting = busyState == 0
+            vm.isSaving = busyState == 1
+            vm.pendingSave = busyState == 2
             vm.clearSelection()
+            vm.removeSelectedUri(uri)
             vm.selectHistory(entry)
             vm.selectBackend(ConversionBackend.BOKO)
             assertEquals(ConversionBackend.AUTO, vm.backend)

@@ -14,8 +14,11 @@ Android app for converting e-books individually or in batches with Calibre and b
 3. Tap **Convert**, then choose a folder to save the results.
 
 **Cancel** discards all temporary outputs from the current batch, including completed
-books; originals are unchanged. **Clear all** deselects books. **History** restores a
-previous selection, output format, and backend for the current app session.
+books; originals are unchanged.
+
+Swipe a selected book left or right to remove it from the queue. **Clear all**
+deselects all books. **History** restores a previous selection, output format, and
+backend for the current app session.
 
 ## Formats and Backends
 

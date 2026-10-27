@@ -13,7 +13,7 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 ## Architecture
 
 - **Single Module Android App**: `app/` contains Kotlin UI and worker-process integration; the Python engine ships as a wheel.
-- **Kotlin UI / ViewModel**: `MainActivity.kt` renders Compose UI (`ConverterScreen`), `ConverterViewModel.kt` holds state and manages file picking/saving via Storage Access Framework.
+- **Kotlin UI / ViewModel**: `MainActivity.kt` owns `ConverterScreen` and SAF pickers; `ConversionOptions.kt` owns the options form, `ConverterDialogs.kt` owns dialogs and issue reporting, and `ConverterTheme.kt` owns palettes. `ConverterViewModel.kt` holds state and manages selection, conversion, and saving.
 - **Python Bridge**: `ConversionService.kt` calls `ebook_converter_lib.convert()` in the private `:conversion` process. Cancellation kills that process before removing its run directory.
 - **Conversion Engine**: the packaged bridge forwards parameters to Calibre's `Plumber` conversion pipeline.
 - **Backends**: `ConversionBackend.kt` owns accepted input/output formats. Settings persists Auto/Calibre/boko selection; the worker validates the snapshotted request. Direct boko skips Python. Auto uses intermediate EPUBs for KFX inputs and KFX/Markdown outputs, applying options through Calibre.

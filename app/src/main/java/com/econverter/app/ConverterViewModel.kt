@@ -15,6 +15,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
+private const val PREFERENCES_NAME = "settings"
+private const val BACKEND_PREFERENCE_KEY = "backend"
+private const val CONVERSION_RUNS_DIRECTORY = "conversion-runs"
+private const val MAX_HISTORY_ENTRIES = 20
+
 data class HistoryEntry(
     val fileName: String,
     val outputFormat: String,
@@ -71,13 +76,13 @@ class ConverterViewModel : ViewModel() {
         backend = value
         if (outputFormat !in outputFormats) outputFormat = "epub"
         status = if (unsupportedInputFileNames.isEmpty()) "" else "Unsupported input for ${backend.label}: ${unsupportedInputFileNames.joinToString(", ")}"
-        context?.getSharedPreferences("settings", 0)?.edit()?.putString("backend", value.name)?.apply()
+        context?.getSharedPreferences(PREFERENCES_NAME, 0)?.edit()?.putString(BACKEND_PREFERENCE_KEY, value.name)?.apply()
     }
 
     fun loadBackendPreference(context: android.content.Context) {
         if (backendPreferenceLoaded) return
         backendPreferenceLoaded = true
-        val saved = context.getSharedPreferences("settings", 0).getString("backend", null)
+        val saved = context.getSharedPreferences(PREFERENCES_NAME, 0).getString(BACKEND_PREFERENCE_KEY, null)
         selectBackend(ConversionBackend.entries.firstOrNull { it.name == saved } ?: ConversionBackend.AUTO)
     }
 
@@ -85,6 +90,15 @@ class ConverterViewModel : ViewModel() {
         if (isConverting || isSaving || pendingSave) return
         inputUris = emptyList()
         inputFileNames = emptyList()
+        status = ""
+    }
+
+    fun removeSelectedUri(uri: Uri) {
+        if (isConverting || isSaving || pendingSave) return
+        val index = inputUris.indexOf(uri)
+        if (index == -1) return
+        inputUris = inputUris.filterIndexed { i, _ -> i != index }
+        inputFileNames = inputFileNames.filterIndexed { i, _ -> i != index }
         status = ""
     }
 
@@ -98,7 +112,7 @@ class ConverterViewModel : ViewModel() {
 
     fun purgeStaleTempFiles(context: android.content.Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            File(context.filesDir, "conversion-runs").listFiles()?.forEach { file ->
+            File(context.filesDir, CONVERSION_RUNS_DIRECTORY).listFiles()?.forEach { file ->
                 if (file != internalWorkDirectory && file.lastModified() < startedAt) {
                     file.deleteRecursively()
                 }
@@ -154,7 +168,7 @@ class ConverterViewModel : ViewModel() {
         val format = outputFormat
         val selectedBackend = backend
         val args = if (selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
-        val directory = File(context.filesDir, "conversion-runs/${UUID.randomUUID()}")
+        val directory = File(context.filesDir, "$CONVERSION_RUNS_DIRECTORY/${UUID.randomUUID()}")
         internalWorkDirectory = directory
         isConverting = true
         isCancelling = false
@@ -196,7 +210,7 @@ class ConverterViewModel : ViewModel() {
     private fun recordHistory(result: String, uris: List<Uri>, names: List<String>, format: String, selectedBackend: ConversionBackend) {
         val entryName = if (names.size > 1) "${names.size} eBooks" else names.first()
         history.add(HistoryEntry(entryName, format, result, System.currentTimeMillis(), uris, names, selectedBackend))
-        if (history.size > 20) history.removeAt(0)
+        if (history.size > MAX_HISTORY_ENTRIES) history.removeAt(0)
     }
 
     fun checkDeps() {

@@ -47,6 +47,7 @@ class ConverterViewModelTest {
             val vm = ConverterViewModel()
             assertTrue(recent.mkdirs())
             val currentOutput = File(recent, "converted.epub").apply { writeText("current output") }
+            assertTrue(recent.setLastModified(System.currentTimeMillis() + 60_000L))
 
             vm.purgeStaleTempFiles(context)
             vm.viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }

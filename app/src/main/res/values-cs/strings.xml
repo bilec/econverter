@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="status_text">%1$s</string>
+    <string name="status_error">Chyba: %1$s</string>
+    <string name="status_selected_skipped">Vybrané e-knihy: %1$s (nepodporované přeskočeny: %2$s)</string>
+    <string name="status_unsupported_selection">Vybrány nepodporované formáty</string>
+    <string name="status_unsupported_conversion">Chyba: Nepodporovaný vstup nebo výstup pro %1$s</string>
+    <string name="status_converting">Převádění...</string>
+    <string name="status_converting_progress">Převádění... hotovo %1$s/%2$s</string>
+    <string name="status_cancelled">Zrušeno</string>
+    <string name="status_save_cancelled">Ukládání zrušeno</string>
+    <string name="status_checking_dependencies">Kontrola závislostí...</string>
+    <string name="status_saved_batch">E-knihy uložené do složky: %1$s</string>
+    <string name="status_saved_file">Uloženo: %1$s</string>
+    <string name="status_save_failed">Chyba: soubory nelze zapsat</string>
+    <string name="status_worker_stopped">Chyba: proces převodu se zastavil</string>
+    <string name="status_worker_missing_result">Chyba: chybí výsledek převodu</string>
+    <string name="status_worker_start_failed">Chyba: proces převodu nelze spustit</string>
+    <string name="status_worker_disconnected">Chyba: proces převodu byl odpojen</string>
+    <string name="status_worker_binding_died">Chyba: spojení s procesem převodu zaniklo</string>
+    <string name="status_worker_unavailable">Chyba: proces převodu není dostupný</string>
+    <string name="status_worker_bind_failed">Chyba: k procesu převodu se nelze připojit</string>
+    <string name="status_done">Hotovo - vyberte místo uložení</string>
+    <string name="status_done_batch">Hotovo (převedené knihy: %1$s) - vyberte složku pro uložení</string>
+    <string name="status_done_partial">Hotovo (převedeno: %1$s, selhalo: %2$s) - vyberte složku pro uložení\n%3$s</string>
     <string name="app_name">EbookConverter</string>
     <string name="your_books">Vaše knihy</string>
     <string name="no_books_selected">Nejsou vybrány žádné knihy</string>
@@ -20,14 +43,10 @@
     <string name="settings">Nastavení</string>
     <string name="about">O aplikaci</string>
     <string name="select_ebooks">Vybrat e-knihy</string>
-    <string name="input_single">Vstup: %1$s</string>
-    <string name="input_batch">Vstup: vybráno %1$d e-knih</string>
     <string name="clear_all">Vymazat vše</string>
     <string name="not_supported_by">Backend %1$s nepodporuje: %2$s</string>
     <string name="backend_label">Backend: %1$s</string>
     <string name="output_format">Výstupní formát</string>
-    <string name="show_options">▼ Možnosti</string>
-    <string name="hide_options">▲ Skrýt možnosti</string>
     <string name="output_profile">Výstupní profil</string>
     <string name="apply_pdf_cleanup">Použít nastavení čištění PDF</string>
     <string name="smarten_punctuation">Typografická interpunkce</string>
@@ -38,7 +57,6 @@
     <string name="authors">Autoři</string>
     <string name="publisher">Vydavatel</string>
     <string name="comments">Poznámky</string>
-    <string name="font">Písmo</string>
     <string name="base_font_size">Základní velikost písma (pt)</string>
     <string name="disable_font_rescaling">Zakázat změnu měřítka písma</string>
     <string name="margins_pt">Okraje (pt)</string>
@@ -54,8 +72,6 @@
     <string name="cancelling">Rušení...</string>
     <string name="cancel">Zrušit</string>
     <string name="report_issue">Nahlásit problém</string>
-    <string name="show_history">▼ Historie (%1$d)</string>
-    <string name="hide_history">▲ Skrýt historii (%1$d)</string>
     <string name="select_books">Vybrat knihy</string>
     <string name="conversion_backend">Konverzní backend</string>
     <string name="close">Zavřít</string>

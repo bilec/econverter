@@ -74,6 +74,8 @@ The templates were adapted from Mustache to templite syntax.
 
 ## Translations
 
+Conversion engine diagnostics may remain untranslated.
+
 Community translations are welcome! To add a new language:
 
 1. Copy `app/src/main/res/values/strings.xml` to `app/src/main/res/values-<lang>/strings.xml` (e.g. `values-de/strings.xml`).

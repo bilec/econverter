@@ -59,7 +59,7 @@ class ConversionWorkerTest {
             vm.inputUris = names.map { Uri.parse("content://test/$it") }
             vm.inputFileNames = names
         }
-        composeRule.onNodeWithText("2 books selected").assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.books_selected, 2)).assertIsDisplayed()
         names.forEach { composeRule.onNodeWithText(it).performScrollTo().assertIsDisplayed() }
         composeRule.onNodeWithText("Add eBooks").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Convert").assertIsDisplayed().assertIsEnabled()
@@ -78,7 +78,7 @@ class ConversionWorkerTest {
         }
         composeRule.onNodeWithText(names[0]).performScrollTo().performTouchInput { swipeLeft() }
         composeRule.onNodeWithText(names[0]).assertDoesNotExist()
-        composeRule.onNodeWithText("2 books selected").assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.books_selected, 2)).assertIsDisplayed()
         composeRule.onNodeWithText(names[1]).performScrollTo().performTouchInput { swipeRight() }
         composeRule.onNodeWithText(names[1]).assertDoesNotExist()
         composeRule.onNodeWithText(names[2]).performScrollTo().assertIsDisplayed()
@@ -182,7 +182,7 @@ class ConversionWorkerTest {
                 val source = makeEpub(File(directory, name))
                 val worker = ConversionWorker(context, File(directory, "run-$name"), listOf(Uri.fromFile(source)), listOf(name), "epub", emptyList())
                 val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-                assertTrue(result.status, result.status.startsWith("Done"))
+                assertTrue(result.status.text(context), result.status.isSuccess)
                 assertTrue("Converted $name must still exist", result.files.single().isFile)
                 assertTrue(source.exists())
             }
@@ -198,7 +198,7 @@ class ConversionWorkerTest {
             val source = makeEpub(File(directory, "source.epub"))
             val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", listOf("--linearize-tables"))
             val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-            assertTrue(result.status, result.status.startsWith("Done"))
+            assertTrue(result.status.text(context), result.status.isSuccess)
             var foundCell = false
             ZipFile(result.files.single()).use { zip ->
                 for (entry in zip.entries().asSequence().filter { it.name.endsWith(".xhtml") || it.name.endsWith(".html") }) {
@@ -221,7 +221,7 @@ class ConversionWorkerTest {
             val source = makeEpub(File(directory, "source.epub"))
             val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "kfx", emptyList())
             val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-            assertTrue(result.status, result.status.startsWith("Done"))
+            assertTrue(result.status.text(context), result.status.isSuccess)
             assertEquals("kfx", result.files.single().extension)
             assertTrue(result.files.single().length() > 0)
             assertFalse(File(directory, "run/0/intermediate.epub").exists())
@@ -240,7 +240,7 @@ class ConversionWorkerTest {
                 val runDirectory = File(directory, format)
                 val worker = ConversionWorker(context, runDirectory, listOf(Uri.fromFile(source)), listOf(source.name), format, emptyList(), backend = ConversionBackend.BOKO)
                 val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-                assertTrue(result.status, result.status.startsWith("Done"))
+                assertTrue(result.status.text(context), result.status.isSuccess)
                 assertTrue(result.files.single().length() > 0)
                 assertFalse("Direct boko must not initialize Calibre scratch storage", File(runDirectory, "tmp").exists())
                 if (format == "md") assertTrue(result.files.single().readText().contains("Book text."))
@@ -257,13 +257,13 @@ class ConversionWorkerTest {
             val source = File(directory, "source.txt").apply { writeText("Chapter 1\n\nBook text.") }
             val toKfx = ConversionWorker(context, File(directory, "kfx"), listOf(Uri.fromFile(source)), listOf(source.name), "kfx", listOf("--title", "Auto Book"), backend = ConversionBackend.AUTO)
             val kfx = withTimeout(90_000) { withContext(Dispatchers.Main) { toKfx.run() } }
-            assertTrue(kfx.status, kfx.status.startsWith("Done"))
+            assertTrue(kfx.status.text(context), kfx.status.isSuccess)
             val toMobi = ConversionWorker(context, File(directory, "mobi"), listOf(Uri.fromFile(kfx.files.single())), listOf("source.kfx"), "mobi", listOf("--title", "Updated title"), backend = ConversionBackend.AUTO)
             val mobi = withTimeout(90_000) { withContext(Dispatchers.Main) { toMobi.run() } }
-            assertTrue(mobi.status, mobi.status.startsWith("Done"))
+            assertTrue(mobi.status.text(context), mobi.status.isSuccess)
             val toEpub = ConversionWorker(context, File(directory, "epub"), listOf(Uri.fromFile(mobi.files.single())), listOf("source.mobi"), "epub", emptyList(), backend = ConversionBackend.BOKO)
             val epub = withTimeout(90_000) { withContext(Dispatchers.Main) { toEpub.run() } }
-            assertTrue(epub.status, epub.status.startsWith("Done"))
+            assertTrue(epub.status.text(context), epub.status.isSuccess)
             ZipFile(epub.files.single()).use { zip ->
                 val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
                 val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
@@ -282,7 +282,7 @@ class ConversionWorkerTest {
             val source = File(directory, "Original.txt").apply { writeText("Book text.") }
             val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
             val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-            assertTrue(result.status, result.status.startsWith("Done"))
+            assertTrue(result.status.text(context), result.status.isSuccess)
             ZipFile(result.files.single()).use { zip ->
                 val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
                 val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
@@ -301,7 +301,7 @@ class ConversionWorkerTest {
             val source = makePdf(File(directory, "source.pdf"))
             val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
             val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-            assertTrue(result.status, result.status.startsWith("Done"))
+            assertTrue(result.status.text(context), result.status.isSuccess)
             ZipFile(result.files.single()).use { zip ->
                 fun text(suffix: String) = zip.getInputStream(zip.entries().asSequence().first { it.name.endsWith(suffix) }).reader().readText()
                 val opf = text(".opf")
@@ -327,7 +327,7 @@ class ConversionWorkerTest {
                 ConversionWorker(context, runDirectory, uris, listOf("source.epub"), "epub", listOf("--title", "Unsupported"), backend = ConversionBackend.BOKO),
             )) {
                 val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-                assertTrue(result.status, result.status.startsWith("Error:"))
+                assertTrue(result.status.text(context), result.status.isError)
                 assertTrue(result.files.isEmpty())
                 assertFalse(runDirectory.exists())
             }
@@ -352,9 +352,9 @@ class ConversionWorkerTest {
                 listOf(source.name, largeSource.name),
                 "epub",
                 emptyList(),
-            ) { progress -> if (progress.contains("1/2 done")) worker.cancel() }
+            ) { progress -> if (progress.resourceId == R.string.status_converting_progress && progress.args == listOf("1", "2")) worker.cancel() }
             val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
-            assertEquals("Cancelled", result.status)
+            assertEquals(StatusMessage(R.string.status_cancelled), result.status)
             assertTrue(result.files.isEmpty())
             assertFalse(runDirectory.exists())
             assertTrue(source.exists())
@@ -363,7 +363,7 @@ class ConversionWorkerTest {
 
             val next = ConversionWorker(context, File(directory, "next"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
             val nextResult = withTimeout(90_000) { withContext(Dispatchers.Main) { next.run() } }
-            assertTrue(nextResult.status, nextResult.status.startsWith("Done"))
+            assertTrue(nextResult.status.text(context), nextResult.status.isSuccess)
         } finally {
             directory.deleteRecursively()
         }

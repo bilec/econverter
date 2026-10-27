@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="status_text">%1$s</string>
+    <string name="status_error">Error: %1$s</string>
+    <string name="status_selected_skipped">Selected %1$s eBooks (%2$s unsupported skipped)</string>
+    <string name="status_unsupported_selection">Unsupported format(s) selected</string>
+    <string name="status_unsupported_conversion">Error: Unsupported input or output for %1$s</string>
+    <string name="status_converting">Converting...</string>
+    <string name="status_converting_progress">Converting... %1$s/%2$s done</string>
+    <string name="status_cancelled">Cancelled</string>
+    <string name="status_save_cancelled">Save cancelled</string>
+    <string name="status_checking_dependencies">Checking dependencies...</string>
+    <string name="status_saved_batch">Saved %1$s eBooks to directory</string>
+    <string name="status_saved_file">Saved: %1$s</string>
+    <string name="status_save_failed">Error: could not write file(s)</string>
+    <string name="status_worker_stopped">Error: conversion worker stopped</string>
+    <string name="status_worker_missing_result">Error: missing conversion result</string>
+    <string name="status_worker_start_failed">Error: could not start conversion worker</string>
+    <string name="status_worker_disconnected">Error: conversion worker disconnected</string>
+    <string name="status_worker_binding_died">Error: conversion worker binding died</string>
+    <string name="status_worker_unavailable">Error: conversion worker unavailable</string>
+    <string name="status_worker_bind_failed">Error: could not bind conversion worker</string>
+    <string name="status_done">Done - choose where to save</string>
+    <string name="status_done_batch">Done (%1$s books converted) - choose directory to save</string>
+    <string name="status_done_partial">Done (%1$s converted, %2$s failed) - choose directory to save\n%3$s</string>
     <string name="app_name">EbookConverter</string>
     <string name="your_books">Your books</string>
     <string name="no_books_selected">No books selected</string>
@@ -20,14 +43,10 @@
     <string name="settings">Settings</string>
     <string name="about">About</string>
     <string name="select_ebooks">Select eBooks</string>
-    <string name="input_single">Input: %1$s</string>
-    <string name="input_batch">Input: %1$d eBooks selected</string>
     <string name="clear_all">Clear all</string>
     <string name="not_supported_by">Not supported by %1$s: %2$s</string>
     <string name="backend_label">Backend: %1$s</string>
     <string name="output_format">Output Format</string>
-    <string name="show_options">▼ Options</string>
-    <string name="hide_options">▲ Hide Options</string>
     <string name="output_profile">Output Profile</string>
     <string name="apply_pdf_cleanup">Apply PDF cleanup settings</string>
     <string name="smarten_punctuation">Smarten punctuation</string>
@@ -38,7 +57,6 @@
     <string name="authors">Authors</string>
     <string name="publisher">Publisher</string>
     <string name="comments">Comments</string>
-    <string name="font">Font</string>
     <string name="base_font_size">Base font size (pt)</string>
     <string name="disable_font_rescaling">Disable font rescaling</string>
     <string name="margins_pt">Margins (pt)</string>
@@ -54,8 +72,6 @@
     <string name="cancelling">Cancelling...</string>
     <string name="cancel">Cancel</string>
     <string name="report_issue">Report Issue</string>
-    <string name="show_history">▼ History (%1$d)</string>
-    <string name="hide_history">▲ Hide History (%1$d)</string>
     <string name="select_books">Select books</string>
     <string name="conversion_backend">Conversion backend</string>
     <string name="close">Close</string>

@@ -75,7 +75,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
             val newUris = uris.distinct().filter { it !in existingUriSet }
 
             if (newUris.isNotEmpty()) {
-                vm.status = context.getString(R.string.loading_selection)
+                vm.status = StatusMessage(R.string.loading_selection)
                 vm.addSelectedUris(context, newUris)
             }
         }
@@ -257,8 +257,8 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
                 ConversionOptions(vm, enabled = canEdit)
 
-                if (vm.status.isNotEmpty()) {
-                    val isError = vm.status.startsWith("Error:")
+                if (vm.status.resourceId != 0) {
+                    val isError = vm.status.isError
                     Surface(
                         color = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
@@ -269,17 +269,17 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                             Icon(
                                 when {
                                     isError -> Icons.Default.Warning
-                                    vm.status.startsWith("Done") -> Icons.Default.CheckCircle
+                                    vm.status.isSuccess -> Icons.Default.CheckCircle
                                     else -> Icons.Default.Info
                                 },
                                 contentDescription = null,
                             )
-                            Text(vm.status, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Text(vm.status.text(context), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         }
                     }
                 }
 
-                if (vm.status.startsWith("Error:")) {
+                if (vm.status.isError) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(onClick = { reportOnGitHub(context, vm) }) {
                         Text(stringResource(R.string.report_issue))
@@ -303,9 +303,10 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                     .clickable(enabled = canEdit, onClickLabel = stringResource(R.string.select_books)) { vm.selectHistory(entry) }
                                     .padding(vertical = 12.dp),
                             ) {
-                                Text("${entry.fileName} → ${entry.outputFormat} (${stringResource(entry.backend.labelRes)})", style = MaterialTheme.typography.bodyMedium)
+                                val entryName = if (entry.fileNames.size > 1) stringResource(R.string.books_selected, entry.fileNames.size) else entry.fileName
+                                Text("$entryName → ${entry.outputFormat} (${stringResource(entry.backend.labelRes)})", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status}",
+                                    "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status.text(context)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

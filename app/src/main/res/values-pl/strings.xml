@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="status_text">%1$s</string>
+    <string name="status_error">Błąd: %1$s</string>
+    <string name="status_selected_skipped">Wybrane e-booki: %1$s (pominięte nieobsługiwane: %2$s)</string>
+    <string name="status_unsupported_selection">Wybrano nieobsługiwane formaty</string>
+    <string name="status_unsupported_conversion">Błąd: Nieobsługiwane wejście lub wyjście dla %1$s</string>
+    <string name="status_converting">Konwertowanie...</string>
+    <string name="status_converting_progress">Konwertowanie... ukończono %1$s/%2$s</string>
+    <string name="status_cancelled">Anulowano</string>
+    <string name="status_save_cancelled">Anulowano zapis</string>
+    <string name="status_checking_dependencies">Sprawdzanie zależności...</string>
+    <string name="status_saved_batch">E-booki zapisane w folderze: %1$s</string>
+    <string name="status_saved_file">Zapisano: %1$s</string>
+    <string name="status_save_failed">Błąd: nie można zapisać plików</string>
+    <string name="status_worker_stopped">Błąd: proces konwersji został zatrzymany</string>
+    <string name="status_worker_missing_result">Błąd: brak wyniku konwersji</string>
+    <string name="status_worker_start_failed">Błąd: nie można uruchomić procesu konwersji</string>
+    <string name="status_worker_disconnected">Błąd: proces konwersji został odłączony</string>
+    <string name="status_worker_binding_died">Błąd: połączenie z procesem konwersji zostało zerwane</string>
+    <string name="status_worker_unavailable">Błąd: proces konwersji jest niedostępny</string>
+    <string name="status_worker_bind_failed">Błąd: nie można połączyć się z procesem konwersji</string>
+    <string name="status_done">Gotowe - wybierz miejsce zapisu</string>
+    <string name="status_done_batch">Gotowe (skonwertowane książki: %1$s) - wybierz folder zapisu</string>
+    <string name="status_done_partial">Gotowe (skonwertowane: %1$s, nieudane: %2$s) - wybierz folder zapisu\n%3$s</string>
     <string name="app_name">EbookConverter</string>
     <string name="your_books">Twoje książki</string>
     <string name="no_books_selected">Nie wybrano książek</string>
@@ -20,14 +43,10 @@
     <string name="settings">Ustawienia</string>
     <string name="about">O aplikacji</string>
     <string name="select_ebooks">Wybierz e-booki</string>
-    <string name="input_single">Wejście: %1$s</string>
-    <string name="input_batch">Wejście: wybrano %1$d e-booków</string>
     <string name="clear_all">Wyczyść wszystko</string>
     <string name="not_supported_by">Nieobsługiwane przez backend %1$s: %2$s</string>
     <string name="backend_label">Backend: %1$s</string>
     <string name="output_format">Format wyjściowy</string>
-    <string name="show_options">▼ Opcje</string>
-    <string name="hide_options">▲ Ukryj opcje</string>
     <string name="output_profile">Profil wyjściowy</string>
     <string name="apply_pdf_cleanup">Zastosuj czyszczenie PDF</string>
     <string name="smarten_punctuation">Inteligentna interpunkcja</string>
@@ -38,7 +57,6 @@
     <string name="authors">Autorzy</string>
     <string name="publisher">Wydawca</string>
     <string name="comments">Komentarze</string>
-    <string name="font">Czcionka</string>
     <string name="base_font_size">Rozmiar czcionki bazowej (pt)</string>
     <string name="disable_font_rescaling">Wyłącz skalowanie czcionki</string>
     <string name="margins_pt">Marginesy (pt)</string>
@@ -54,8 +72,6 @@
     <string name="cancelling">Anulowanie...</string>
     <string name="cancel">Anuluj</string>
     <string name="report_issue">Zgłoś problem</string>
-    <string name="show_history">▼ Historia (%1$d)</string>
-    <string name="hide_history">▲ Ukryj historię (%1$d)</string>
     <string name="select_books">Wybierz książki</string>
     <string name="conversion_backend">Backend konwersji</string>
     <string name="close">Zamknij</string>

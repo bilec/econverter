@@ -14,7 +14,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import kotlin.coroutines.resume
 
-data class ConversionResult(val status: String, val files: List<File> = emptyList())
+data class ConversionResult(val status: StatusMessage, val files: List<File> = emptyList())
 
 class ConversionWorker(
     context: Context,
@@ -24,7 +24,7 @@ class ConversionWorker(
     private val format: String,
     private val args: List<String>,
     private val backend: ConversionBackend = ConversionBackend.AUTO,
-    private val onProgress: (String) -> Unit = {},
+    private val onProgress: (StatusMessage) -> Unit = {},
 ) {
     private val context = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
@@ -46,7 +46,7 @@ class ConversionWorker(
     suspend fun run(): ConversionResult {
         if (cancelled) {
             directory.deleteRecursively()
-            return ConversionResult("Cancelled")
+            return ConversionResult(StatusMessage(R.string.status_cancelled))
         }
         return suspendCancellableCoroutine { continuation ->
             var bound = false
@@ -64,20 +64,20 @@ class ConversionWorker(
                 if (cancelled || !continuation.isActive || result.files.isEmpty()) {
                     directory.deleteRecursively()
                 }
-                if (continuation.isActive) continuation.resume(if (cancelled) ConversionResult("Cancelled") else result)
+                if (continuation.isActive) continuation.resume(if (cancelled) ConversionResult(StatusMessage(R.string.status_cancelled)) else result)
             }
 
             death = IBinder.DeathRecipient {
-                handler.post { finish(ConversionResult(if (cancelled) "Cancelled" else "Error: conversion worker stopped")) }
+                handler.post { finish(ConversionResult(if (cancelled) StatusMessage(R.string.status_cancelled) else StatusMessage(R.string.status_worker_stopped, isError = true))) }
             }
             val reply = Messenger(
                 Handler(Looper.getMainLooper()) { message ->
                     when (message.what) {
-                        ConversionService.PROGRESS -> if (!cancelled) onProgress(message.data.getString("status").orEmpty())
+                        ConversionService.PROGRESS -> if (!cancelled) onProgress(StatusMessage.fromBundle(message.data))
 
                         ConversionService.DONE -> finish(
                             ConversionResult(
-                                message.data.getString("status") ?: "Error: missing conversion result",
+                                StatusMessage.fromBundle(message.data),
                                 message.data.getStringArrayList("files").orEmpty().map { File(it) },
                             ),
                         )
@@ -104,28 +104,28 @@ class ConversionWorker(
                         }
                         remote?.send(message)
                     } catch (_: RemoteException) {
-                        finish(ConversionResult("Error: could not start conversion worker"))
+                        finish(ConversionResult(StatusMessage(R.string.status_worker_start_failed, isError = true)))
                     }
                 }
 
                 override fun onServiceDisconnected(name: ComponentName) {
-                    finish(ConversionResult("Error: conversion worker disconnected"))
+                    finish(ConversionResult(StatusMessage(R.string.status_worker_disconnected, isError = true)))
                 }
 
                 override fun onBindingDied(name: ComponentName) {
-                    finish(ConversionResult("Error: conversion worker binding died"))
+                    finish(ConversionResult(StatusMessage(R.string.status_worker_binding_died, isError = true)))
                 }
 
                 override fun onNullBinding(name: ComponentName) {
-                    finish(ConversionResult("Error: conversion worker unavailable"))
+                    finish(ConversionResult(StatusMessage(R.string.status_worker_unavailable, isError = true)))
                 }
             }
             continuation.invokeOnCancellation { cancel() }
             try {
                 bound = context.bindService(Intent(context, ConversionService::class.java), connection, Context.BIND_AUTO_CREATE)
-                if (!bound) finish(ConversionResult("Error: could not bind conversion worker"))
+                if (!bound) finish(ConversionResult(StatusMessage(R.string.status_worker_bind_failed, isError = true)))
             } catch (error: Exception) {
-                finish(ConversionResult("Error: ${error.message}"))
+                finish(ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true)))
             }
         }
     }
@@ -153,13 +153,12 @@ class ConversionService : Service() {
                         val result = try {
                             convertBooks(data, reply)
                         } catch (error: Exception) {
-                            ConversionResult("Error: ${error.message}")
+                            ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true))
                         }
                         send(
                             reply,
                             DONE,
-                            Bundle().apply {
-                                putString("status", result.status)
+                            result.status.toBundle().apply {
                                 putStringArrayList("files", ArrayList(result.files.map { it.absolutePath }))
                             },
                         )
@@ -200,7 +199,7 @@ class ConversionService : Service() {
         val errors = mutableListOf<String>()
 
         for (index in uris.indices) {
-            send(reply, PROGRESS, Bundle().apply { putString("status", "Converting... $index/${uris.size} done") })
+            send(reply, PROGRESS, StatusMessage(R.string.status_converting_progress, listOf(index.toString(), uris.size.toString())).toBundle())
             val bookDirectory = File(directory, index.toString()).apply { check(mkdirs()) { "Could not create temporary directory" } }
             val name = File(names[index]).name
             val inputDirectory = File(bookDirectory, "source").apply { check(mkdir()) { "Could not create input directory" } }
@@ -242,10 +241,10 @@ class ConversionService : Service() {
             }
         }
         val status = when {
-            files.isEmpty() -> "Error: ${errors.joinToString("\n") }"
-            uris.size == 1 -> "Done - choose where to save"
-            errors.isEmpty() -> "Done (${files.size} books converted) - choose directory to save"
-            else -> "Done (${files.size} converted, ${errors.size} failed) - choose directory to save\n${errors.joinToString("\n") }"
+            files.isEmpty() -> StatusMessage(R.string.status_error, listOf(errors.joinToString("\n")), isError = true)
+            uris.size == 1 -> StatusMessage(R.string.status_done, isSuccess = true)
+            errors.isEmpty() -> StatusMessage(R.string.status_done_batch, listOf(files.size.toString()), isSuccess = true)
+            else -> StatusMessage(R.string.status_done_partial, listOf(files.size.toString(), errors.size.toString(), errors.joinToString("\n")), isSuccess = true)
         }
         return ConversionResult(status, files)
     }

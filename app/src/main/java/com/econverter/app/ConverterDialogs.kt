@@ -102,7 +102,7 @@ internal fun reportOnGitHub(context: Context, vm: ConverterViewModel) {
         appendLine()
         appendLine("- **Steps to reproduce:**")
         appendLine("- **Expected result:**")
-        appendLine("- **Error:** ${vm.status}")
+        appendLine("- **Error:** ${vm.status.text(context)}")
         appendLine("- **Input file:** ${vm.inputFileName}")
         appendLine("- **Output format:** ${vm.outputFormat}")
         appendLine("- **Backend:** ${vm.backend.label}")

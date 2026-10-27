@@ -35,6 +35,10 @@ import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 import javax.xml.parsers.DocumentBuilderFactory
 
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ConversionSmokeTest
+
 @RunWith(AndroidJUnit4::class)
 class ConversionWorkerTest {
     @get:Rule
@@ -175,6 +179,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun sameFormatConversionKeepsOutputsNamedLikeTemporaryFiles() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -215,6 +220,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun kfxConversionLoadsNativeBackend() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -337,6 +343,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun cancellingBatchDiscardsCompletedOutputsAndAllowsAnotherRun() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         val existingScratch = engineScratchDirectories()

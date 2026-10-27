@@ -31,6 +31,8 @@
 | [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Bound conversion process and cancellable Binder client. |
 | [app/build.gradle.kts](app/build.gradle.kts) | Configures Chaquopy, the pinned Python engine, and the external boko Android AAR. |
 | [settings.gradle.kts](settings.gradle.kts) | Optional `bokoBindingsDir` composite-build substitution for local library development. |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | Reusable check-to-emulator gate for pull requests, master pushes, and releases. |
+| [.github/workflows/release.yml](.github/workflows/release.yml) | Builds and publishes tagged releases only after the CI gate passes. |
 | [.gitmodules](.gitmodules) | CPython host-build submodule; its Git commit pins the source used by the prepared F-Droid 1.3.0 recipes. |
 | [metadata/com.econverter.app.yml](metadata/com.econverter.app.yml) | Historical F-Droid builds; future recipes stay outside active metadata until release validation. |
 

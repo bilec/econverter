@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -23,11 +24,11 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
         TextButton(onClick = { showOptions = !showOptions }, enabled = enabled, contentPadding = PaddingValues(0.dp)) {
             Icon(if (showOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Conversion options")
+            Text(stringResource(R.string.conversion_options))
         }
     }
     if (showOptions && vm.backend != ConversionBackend.BOKO) {
-        FormatDropdown("Output Profile", vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
+        FormatDropdown(stringResource(R.string.output_profile), vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
         if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
@@ -37,15 +38,15 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
                     }
                 },
             ) {
-                Text("Apply PDF cleanup settings")
+                Text(stringResource(R.string.apply_pdf_cleanup))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        CheckboxRow("Smarten punctuation", vm.smartenPunctuation) { vm.smartenPunctuation = it }
+        CheckboxRow(stringResource(R.string.smarten_punctuation), vm.smartenPunctuation) { vm.smartenPunctuation = it }
         if (vm.outputFormat == "epub") {
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("EPUB version: ")
+                Text(stringResource(R.string.epub_version_label))
                 listOf("2", "3").forEach { version ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = vm.epubVersion == version, onClick = { vm.epubVersion = version })
@@ -55,44 +56,44 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
             }
         }
 
-        OptionGroup("Metadata", enabled = enabled) {
+        OptionGroup(stringResource(R.string.metadata), enabled = enabled) {
             OptionField(
-                label = if (vm.isBatch) "Title (Disabled for batch)" else "Title",
+                label = stringResource(if (vm.isBatch) R.string.title_field_batch_disabled else R.string.title_field),
                 value = vm.title,
                 enabled = !vm.isBatch,
                 onValueChange = { vm.title = it },
             )
-            OptionField("Authors", vm.authors) { vm.authors = it }
-            OptionField("Publisher", vm.publisher) { vm.publisher = it }
-            OptionField("Comments", vm.comments) { vm.comments = it }
+            OptionField(stringResource(R.string.authors), vm.authors) { vm.authors = it }
+            OptionField(stringResource(R.string.publisher), vm.publisher) { vm.publisher = it }
+            OptionField(stringResource(R.string.comments), vm.comments) { vm.comments = it }
         }
-        OptionGroup("Typography", enabled = enabled) {
-            OptionField("Base font size (pt)", vm.baseFontSize) { vm.baseFontSize = it }
-            CheckboxRow("Disable font rescaling", vm.disableFontRescaling) { vm.disableFontRescaling = it }
+        OptionGroup(stringResource(R.string.typography), enabled = enabled) {
+            OptionField(stringResource(R.string.base_font_size), vm.baseFontSize) { vm.baseFontSize = it }
+            CheckboxRow(stringResource(R.string.disable_font_rescaling), vm.disableFontRescaling) { vm.disableFontRescaling = it }
         }
-        OptionGroup("Margins (pt)", enabled = enabled) {
+        OptionGroup(stringResource(R.string.margins_pt), enabled = enabled) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OptionField("Top", vm.marginTop, modifier = Modifier.weight(1f)) { vm.marginTop = it }
-                OptionField("Bottom", vm.marginBottom, modifier = Modifier.weight(1f)) { vm.marginBottom = it }
+                OptionField(stringResource(R.string.margin_top), vm.marginTop, modifier = Modifier.weight(1f)) { vm.marginTop = it }
+                OptionField(stringResource(R.string.margin_bottom), vm.marginBottom, modifier = Modifier.weight(1f)) { vm.marginBottom = it }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OptionField("Left", vm.marginLeft, modifier = Modifier.weight(1f)) { vm.marginLeft = it }
-                OptionField("Right", vm.marginRight, modifier = Modifier.weight(1f)) { vm.marginRight = it }
+                OptionField(stringResource(R.string.margin_left), vm.marginLeft, modifier = Modifier.weight(1f)) { vm.marginLeft = it }
+                OptionField(stringResource(R.string.margin_right), vm.marginRight, modifier = Modifier.weight(1f)) { vm.marginRight = it }
             }
         }
-        OptionGroup("Advanced", enabled = enabled) {
-            Text("Extra arguments", style = MaterialTheme.typography.labelLarge)
+        OptionGroup(stringResource(R.string.advanced), enabled = enabled) {
+            Text(stringResource(R.string.extra_arguments), style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = vm.extraArgs,
                 onValueChange = { vm.extraArgs = it },
-                label = { Text("e.g. --chapter-mark pagebreak --title \"My Book\"") },
+                label = { Text(stringResource(R.string.extra_arguments_hint)) },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text("Remove exact text", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.remove_exact_text), style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = vm.removeText,
                 onValueChange = { vm.removeText = it },
-                label = { Text("One regex or text sequence per line") },
+                label = { Text(stringResource(R.string.remove_exact_text_hint)) },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -135,12 +136,13 @@ private fun CheckboxRow(label: String, checked: Boolean, onCheckedChange: (Boole
 @Composable
 private fun OptionGroup(title: String, enabled: Boolean, content: @Composable ColumnScope.() -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val expansionDescription = stringResource(if (expanded) R.string.expanded else R.string.collapsed)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
         TextButton(
             onClick = { expanded = !expanded },
             enabled = enabled,
-            modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+            modifier = Modifier.fillMaxWidth().semantics { stateDescription = expansionDescription },
             contentPadding = PaddingValues(vertical = 12.dp),
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))

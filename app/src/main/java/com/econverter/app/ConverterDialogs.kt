@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
@@ -25,7 +26,7 @@ private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
 internal fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (ConversionBackend) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Conversion backend") },
+        title = { Text(stringResource(R.string.conversion_backend)) },
         text = {
             CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
@@ -38,18 +39,18 @@ internal fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (Conver
                     ) {
                         RadioButton(selected = backend == option, onClick = null)
                         Column(Modifier.weight(1f)) {
-                            Text(option.label, style = MaterialTheme.typography.titleSmall)
-                            Text(option.description, style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(option.labelRes), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(option.descRes), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
-                Text("Input: ${backend.inputFormats.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
-                Text("Output: ${backend.outputFormats.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.input_formats_summary, backend.inputFormats.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.output_formats_summary, backend.outputFormats.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
 }
 
@@ -65,25 +66,25 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("About eBook Converter") },
+        title = { Text(stringResource(R.string.about_title)) },
         text = {
             CenterDialogWindow()
             Column {
-                Text("Version: $versionName")
-                Text("Author: Martin Bilka")
-                Text("License: GPL-3.0-only")
+                Text(stringResource(R.string.version_format, versionName))
+                Text(stringResource(R.string.author))
+                Text(stringResource(R.string.license))
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPOSITORY_URL)))
             }) {
-                Text("View on GitHub")
+                Text(stringResource(R.string.view_on_github))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         },
     )

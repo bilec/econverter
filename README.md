@@ -71,3 +71,11 @@ The ebook-converter-lib package's KF8/AZW3 writer (`ebook_converter.ebooks.mobi.
 and HTML export templates (`ebook_converter/data/html_export_default*`) are ported
 from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal).
 The templates were adapted from Mustache to templite syntax.
+
+## Translations
+
+Community translations are welcome! To add a new language:
+
+1. Copy `app/src/main/res/values/strings.xml` to `app/src/main/res/values-<lang>/strings.xml` (e.g. `values-de/strings.xml`).
+2. Add your language tag to `app/src/main/res/xml/locales_config.xml`.
+3. Submit a pull request using the translation PR template.

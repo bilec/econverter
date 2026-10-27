@@ -1,9 +1,16 @@
 package com.econverter.app
 
-enum class ConversionBackend(val label: String, val description: String) {
-    AUTO("Auto", "Combines Calibre and boko for the widest format support. Conversion options are applied through Calibre."),
-    CALIBRE("Calibre", "Broad format support with metadata, font, layout, and text options. No KFX input or output."),
-    BOKO("boko", "Direct native conversion for EPUB, KFX, AZW3, and MOBI books. Calibre conversion options are unavailable."),
+import androidx.annotation.StringRes
+
+enum class ConversionBackend(
+    val label: String,
+    val description: String,
+    @StringRes val labelRes: Int = 0,
+    @StringRes val descRes: Int = 0,
+) {
+    AUTO("Auto", "Combines Calibre and boko for the widest format support. Conversion options are applied through Calibre.", R.string.backend_auto_label, R.string.backend_auto_desc),
+    CALIBRE("Calibre", "Broad format support with metadata, font, layout, and text options. No KFX input or output.", R.string.backend_calibre_label, R.string.backend_calibre_desc),
+    BOKO("boko", "Direct native conversion for EPUB, KFX, AZW3, and MOBI books. Calibre conversion options are unavailable.", R.string.backend_boko_label, R.string.backend_boko_desc),
     ;
 
     val inputFormats: Set<String>

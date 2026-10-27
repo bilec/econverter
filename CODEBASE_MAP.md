@@ -44,6 +44,8 @@
 
    Settings selects Auto, Calibre, or boko and filters format choices. Direct boko skips Python. Auto normalizes KFX inputs with boko, applies conversion options through Calibre, and uses boko for KFX/Markdown output via intermediate EPUBs.
 
+   `StatusMessage` carries progress and results through Binder to the ViewModel and history.
+
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 
 3. **Output File Saving**:

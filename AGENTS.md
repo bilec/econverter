@@ -1,6 +1,6 @@
 # AGENTS.md — econverter
 
-An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquopy (Python 3.11).
+Android e-book converter using Calibre (via Chaquopy) and native boko.
 
 ## Tech Stack
 
@@ -37,9 +37,9 @@ An Android e-book converter app wrapping Calibre (`ebook-converter`) via Chaquop
 
 ## Coding Conventions
 
-- **UI State**: Always use `var name by mutableStateOf<T>(...)` in ViewModel.
-- **Error Handling**: Exceptions caught at UI boundary returned as strings starting with `"Error: "`.
-- **Composables**: Helper composables marked `private fun`.
+- **UI State**: Use Compose-observable ViewModel state (`mutableStateOf` or `mutableStateListOf`).
+- **Status Messages**: Resolve `StatusMessage.text(context)` at display time; use `isError` and `isSuccess` rather than text prefixes.
+- **Composables**: Use `private` for file-local helpers and `internal` for helpers shared between files.
 - **Resource Management**: Streams closed with `.use {}`, null checks using `?:` or `?.let {}`.
 - **Formatting**: Kotlin formatting enforced via Spotless; wildcard imports (`*`) allowed per Spotless configuration.
 

@@ -45,6 +45,8 @@
 !/fastlane/metadata/**/*.png
 !/fastlane/metadata/**/*.txt
 
-# github actions
+# github actions and templates
 !/.github/workflows/ci.yml
 !/.github/workflows/release.yml
+!/.github/ISSUE_TEMPLATE/bug_report.md
+!/.github/ISSUE_TEMPLATE/translation.md

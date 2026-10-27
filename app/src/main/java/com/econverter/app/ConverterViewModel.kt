@@ -1,7 +1,10 @@
 package com.econverter.app
 
+import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.provider.DocumentsContract
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -20,10 +23,34 @@ private const val BACKEND_PREFERENCE_KEY = "backend"
 private const val CONVERSION_RUNS_DIRECTORY = "conversion-runs"
 private const val MAX_HISTORY_ENTRIES = 20
 
+data class StatusMessage(
+    @StringRes val resourceId: Int = 0,
+    val args: List<String> = emptyList(),
+    val isError: Boolean = false,
+    val isSuccess: Boolean = false,
+) {
+    fun text(context: Context): String = if (resourceId == 0) "" else context.getString(resourceId, *args.toTypedArray())
+
+    fun toBundle(): Bundle = Bundle().apply {
+        putInt("statusResource", resourceId)
+        putStringArrayList("statusArgs", ArrayList(args))
+        putBoolean("statusError", isError)
+        putBoolean("statusSuccess", isSuccess)
+    }
+
+    companion object {
+        fun fromBundle(bundle: Bundle): StatusMessage = if (bundle.containsKey("statusResource")) {
+            StatusMessage(bundle.getInt("statusResource"), bundle.getStringArrayList("statusArgs").orEmpty(), bundle.getBoolean("statusError"), bundle.getBoolean("statusSuccess"))
+        } else {
+            StatusMessage(R.string.status_worker_missing_result, isError = true)
+        }
+    }
+}
+
 data class HistoryEntry(
     val fileName: String,
     val outputFormat: String,
-    val status: String,
+    val status: StatusMessage,
     val timestamp: Long,
     val uris: List<Uri> = emptyList(),
     val fileNames: List<String> = emptyList(),
@@ -52,7 +79,7 @@ class ConverterViewModel : ViewModel() {
     var marginRight by mutableStateOf("")
     var extraArgs by mutableStateOf("")
     var removeText by mutableStateOf("")
-    var status by mutableStateOf("")
+    var status by mutableStateOf(StatusMessage())
     var isConverting by mutableStateOf(false)
     var isCancelling by mutableStateOf(false)
     var isSaving by mutableStateOf(false)
@@ -75,7 +102,7 @@ class ConverterViewModel : ViewModel() {
         if (isConverting || isSaving || pendingSave) return
         backend = value
         if (outputFormat !in outputFormats) outputFormat = "epub"
-        status = if (unsupportedInputFileNames.isEmpty()) "" else "Unsupported input for ${backend.label}: ${unsupportedInputFileNames.joinToString(", ")}"
+        status = if (unsupportedInputFileNames.isEmpty()) StatusMessage() else StatusMessage(R.string.not_supported_by, listOf(backend.label, unsupportedInputFileNames.joinToString(", ")))
         context?.getSharedPreferences(PREFERENCES_NAME, 0)?.edit()?.putString(BACKEND_PREFERENCE_KEY, value.name)?.apply()
     }
 
@@ -90,7 +117,7 @@ class ConverterViewModel : ViewModel() {
         if (isConverting || isSaving || pendingSave) return
         inputUris = emptyList()
         inputFileNames = emptyList()
-        status = ""
+        status = StatusMessage()
     }
 
     fun removeSelectedUri(uri: Uri) {
@@ -99,7 +126,7 @@ class ConverterViewModel : ViewModel() {
         if (index == -1) return
         inputUris = inputUris.filterIndexed { i, _ -> i != index }
         inputFileNames = inputFileNames.filterIndexed { i, _ -> i != index }
-        status = ""
+        status = StatusMessage()
     }
 
     fun selectHistory(entry: HistoryEntry) {
@@ -132,11 +159,11 @@ class ConverterViewModel : ViewModel() {
                 if (validPairs.isNotEmpty()) {
                     inputUris = inputUris + validPairs.map { it.first }
                     inputFileNames = inputFileNames + validPairs.map { it.second }
-                    status = if (unsupportedCount > 0) "Selected ${inputUris.size} eBooks ($unsupportedCount unsupported skipped)" else ""
+                    status = if (unsupportedCount > 0) StatusMessage(R.string.status_selected_skipped, listOf(inputUris.size.toString(), unsupportedCount.toString())) else StatusMessage()
                 } else if (unsupportedCount > 0) {
-                    status = "Unsupported format(s) selected"
+                    status = StatusMessage(R.string.status_unsupported_selection)
                 } else {
-                    status = ""
+                    status = StatusMessage()
                 }
             }
         }
@@ -144,7 +171,7 @@ class ConverterViewModel : ViewModel() {
 
     val inputFormats: Set<String> get() = backend.inputFormats
 
-    // ponytail: only profiles people actually use, add more when asked
+    // shortcut: fixed profile list; extend for additional devices.
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
 
     val outputFormats: List<String> get() = backend.outputFormats
@@ -159,7 +186,7 @@ class ConverterViewModel : ViewModel() {
     fun convert(context: android.content.Context) {
         if (!hasSelection || isConverting || isSaving || pendingSave) return
         if (!canConvert) {
-            status = "Error: Unsupported input or output for ${backend.label}"
+            status = StatusMessage(R.string.status_unsupported_conversion, listOf(backend.label), isError = true)
             return
         }
         cleanup()
@@ -172,7 +199,7 @@ class ConverterViewModel : ViewModel() {
         internalWorkDirectory = directory
         isConverting = true
         isCancelling = false
-        status = "Converting..."
+        status = StatusMessage(R.string.status_converting)
         val currentWorker = ConversionWorker(context, directory, uris, names, format, args, selectedBackend) { status = it }
         worker = currentWorker
         viewModelScope.launch {
@@ -197,17 +224,17 @@ class ConverterViewModel : ViewModel() {
     fun cancelConversion() {
         if (!isConverting || isCancelling) return
         isCancelling = true
-        status = "Cancelling..."
+        status = StatusMessage(R.string.cancelling)
         worker?.cancel()
     }
 
     fun discardPendingSave() {
         if (isSaving) return
         cleanup()
-        status = "Save cancelled"
+        status = StatusMessage(R.string.status_save_cancelled)
     }
 
-    private fun recordHistory(result: String, uris: List<Uri>, names: List<String>, format: String, selectedBackend: ConversionBackend) {
+    private fun recordHistory(result: StatusMessage, uris: List<Uri>, names: List<String>, format: String, selectedBackend: ConversionBackend) {
         val entryName = if (names.size > 1) "${names.size} eBooks" else names.first()
         history.add(HistoryEntry(entryName, format, result, System.currentTimeMillis(), uris, names, selectedBackend))
         if (history.size > MAX_HISTORY_ENTRIES) history.removeAt(0)
@@ -215,14 +242,15 @@ class ConverterViewModel : ViewModel() {
 
     fun checkDeps() {
         viewModelScope.launch {
-            status = "Checking dependencies..."
+            status = StatusMessage(R.string.status_checking_dependencies)
             val result = withContext(Dispatchers.IO) {
                 try {
                     val py = Python.getInstance()
                     val converter = py.getModule("ebook_converter_lib")
-                    converter.callAttr("check_deps_str").toJava(String::class.java)
+                    val details = converter.callAttr("check_deps_str").toJava(String::class.java)
+                    StatusMessage(R.string.status_text, listOf(details), isError = details.startsWith("Error:"))
                 } catch (e: Exception) {
-                    "Error: ${e.message}"
+                    StatusMessage(R.string.status_error, listOf(e.message.orEmpty()), isError = true)
                 }
             }
             status = result
@@ -240,14 +268,14 @@ class ConverterViewModel : ViewModel() {
                 val files = if (batch) internalBatchFiles else listOfNotNull(internalOutputFile)
                 val saved = saveToDirectoryUri(context, uri, files)
                 if (!saved) {
-                    "Error: could not write file(s)"
+                    StatusMessage(R.string.status_save_failed, isError = true)
                 } else if (batch) {
-                    "Saved $count eBooks to directory"
+                    StatusMessage(R.string.status_saved_batch, listOf(count.toString()), isSuccess = true)
                 } else {
-                    "Saved: $outputName"
+                    StatusMessage(R.string.status_saved_file, listOf(outputName), isSuccess = true)
                 }
             } catch (error: Exception) {
-                "Error: ${error.message}"
+                StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true)
             }
             cleanup()
             withContext(Dispatchers.Main) {
@@ -329,7 +357,7 @@ class ConverterViewModel : ViewModel() {
         if (outputProfile != "default") args += listOf("--output-profile", outputProfile)
         if (smartenPunctuation) args += "--smarten-punctuation"
         if (outputFormat == "epub" && epubVersion != "2") args += listOf("--epub-version", epubVersion)
-        // ponytail: Title & Cover omitted in batch mode to prevent overwriting metadata on distinct books
+        // Preserve each book's own title and cover during batch conversion.
         if (!isBatch && title.isNotBlank()) args += listOf("--title", title)
         if (authors.isNotBlank()) args += listOf("--authors", authors)
         if (publisher.isNotBlank()) args += listOf("--publisher", publisher)
@@ -341,7 +369,7 @@ class ConverterViewModel : ViewModel() {
         if (marginBottom.isNotBlank()) args += listOf("--margin-bottom", marginBottom)
         if (marginLeft.isNotBlank()) args += listOf("--margin-left", marginLeft)
         if (marginRight.isNotBlank()) args += listOf("--margin-right", marginRight)
-        // ponytail: free-text extra args for power users; "quoted values" (straight or curly quotes) stay one argument
+        // Keep double-quoted values together, including typographic quotes.
         if (extraArgs.isNotBlank()) args += Regex("[\"“]([^\"”]*)[\"”]|\\S+").findAll(extraArgs).map { it.groups[1]?.value ?: it.value }
         if (removeText.isNotBlank()) args += listOf("--remove-text", removeText)
         return args

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.customActions
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
+    val removeBookLabel = stringResource(R.string.remove_book)
     val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave
 
     LaunchedEffect(Unit) {
@@ -73,7 +75,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
             val newUris = uris.distinct().filter { it !in existingUriSet }
 
             if (newUris.isNotEmpty()) {
-                vm.status = "Loading selection..."
+                vm.status = StatusMessage(R.string.loading_selection)
                 vm.addSelectedUris(context, newUris)
             }
         }
@@ -105,13 +107,13 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("eBook Converter") },
+                title = { Text(stringResource(R.string.app_title)) },
                 actions = {
                     IconButton(onClick = { showSettings = true }, enabled = canEdit) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                     IconButton(onClick = { showAbout = true }) {
-                        Icon(Icons.Default.Info, contentDescription = "About")
+                        Icon(Icons.Default.Info, contentDescription = stringResource(R.string.about))
                     }
                 },
             )
@@ -137,11 +139,11 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 when {
-                                    vm.isCancelling -> "Cancelling..."
-                                    vm.isConverting -> "Cancel"
-                                    vm.isSaving -> "Saving..."
-                                    vm.pendingSave -> "Choose save folder"
-                                    else -> "Convert"
+                                    vm.isCancelling -> stringResource(R.string.cancelling)
+                                    vm.isConverting -> stringResource(R.string.cancel)
+                                    vm.isSaving -> stringResource(R.string.saving)
+                                    vm.pendingSave -> stringResource(R.string.choose_save_folder)
+                                    else -> stringResource(R.string.convert)
                                 },
                             )
                         }
@@ -162,9 +164,9 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Your books", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.your_books), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                     if (vm.inputFileNames.isNotEmpty()) {
-                        TextButton(onClick = vm::clearSelection, enabled = canEdit) { Text("Clear all") }
+                        TextButton(onClick = vm::clearSelection, enabled = canEdit) { Text(stringResource(R.string.clear_all)) }
                     }
                 }
                 if (vm.inputFileNames.isEmpty()) {
@@ -174,11 +176,11 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(48.dp))
-                        Text("No books selected", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.no_books_selected), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     }
                 } else {
                     Text(
-                        "${vm.inputFileNames.size} ${if (vm.isBatch) "books" else "book"} selected",
+                        stringResource(R.string.books_selected, vm.inputFileNames.size),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -196,7 +198,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                 modifier = Modifier.semantics(mergeDescendants = true) {
                                     customActions = if (canEdit) {
                                         listOf(
-                                            CustomAccessibilityAction("Remove book") {
+                                            CustomAccessibilityAction(removeBookLabel) {
                                                 vm.removeSelectedUri(uri)
                                                 true
                                             },
@@ -241,22 +243,22 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (vm.inputFileNames.isEmpty()) "Select eBooks" else "Add eBooks")
+                    Text(stringResource(if (vm.inputFileNames.isEmpty()) R.string.select_ebooks else R.string.add_ebooks))
                 }
                 if (vm.unsupportedInputFileNames.isNotEmpty()) {
-                    Text("Not supported by ${vm.backend.label}: ${vm.unsupportedInputFileNames.joinToString(", ")}", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.not_supported_by, stringResource(vm.backend.labelRes), vm.unsupportedInputFileNames.joinToString(", ")), color = MaterialTheme.colorScheme.error)
                 }
 
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
-                Text("Output", style = MaterialTheme.typography.titleLarge)
-                FormatDropdown("Output Format", vm.outputFormat, vm.outputFormats, enabled = canEdit) { vm.outputFormat = it }
-                Text("Backend: ${vm.backend.label}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.output), style = MaterialTheme.typography.titleLarge)
+                FormatDropdown(stringResource(R.string.output_format), vm.outputFormat, vm.outputFormats, enabled = canEdit) { vm.outputFormat = it }
+                Text(stringResource(R.string.backend_label, stringResource(vm.backend.labelRes)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 ConversionOptions(vm, enabled = canEdit)
 
-                if (vm.status.isNotEmpty()) {
-                    val isError = vm.status.startsWith("Error:")
+                if (vm.status.resourceId != 0) {
+                    val isError = vm.status.isError
                     Surface(
                         color = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
@@ -267,20 +269,20 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                             Icon(
                                 when {
                                     isError -> Icons.Default.Warning
-                                    vm.status.startsWith("Done") -> Icons.Default.CheckCircle
+                                    vm.status.isSuccess -> Icons.Default.CheckCircle
                                     else -> Icons.Default.Info
                                 },
                                 contentDescription = null,
                             )
-                            Text(vm.status, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Text(vm.status.text(context), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         }
                     }
                 }
 
-                if (vm.status.startsWith("Error:")) {
+                if (vm.status.isError) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(onClick = { reportOnGitHub(context, vm) }) {
-                        Text("Report Issue")
+                        Text(stringResource(R.string.report_issue))
                     }
                 }
 
@@ -292,18 +294,19 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                     TextButton(onClick = { showHistory = !showHistory }, contentPadding = PaddingValues(0.dp)) {
                         Icon(if (showHistory) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("History (${vm.history.size})")
+                        Text(stringResource(R.string.history, vm.history.size))
                     }
                     if (showHistory) {
                         vm.history.asReversed().forEach { entry ->
                             Column(
                                 modifier = Modifier.fillMaxWidth()
-                                    .clickable(enabled = canEdit, onClickLabel = "Select books") { vm.selectHistory(entry) }
+                                    .clickable(enabled = canEdit, onClickLabel = stringResource(R.string.select_books)) { vm.selectHistory(entry) }
                                     .padding(vertical = 12.dp),
                             ) {
-                                Text("${entry.fileName} → ${entry.outputFormat} (${entry.backend.label})", style = MaterialTheme.typography.bodyMedium)
+                                val entryName = if (entry.fileNames.size > 1) stringResource(R.string.books_selected, entry.fileNames.size) else entry.fileName
+                                Text("$entryName → ${entry.outputFormat} (${stringResource(entry.backend.labelRes)})", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status}",
+                                    "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status.text(context)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

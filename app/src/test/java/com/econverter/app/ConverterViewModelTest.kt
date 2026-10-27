@@ -1,10 +1,14 @@
 package com.econverter.app
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.ProviderInfo
+import android.content.res.Configuration
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Build
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
@@ -13,16 +17,90 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
+import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ConverterViewModelTest {
+    @Test
+    fun statusAndHistoryResolveUsingTheCurrentLanguage() {
+        val context = RuntimeEnvironment.getApplication()
+        val vm = ConverterViewModel()
+        vm.discardPendingSave()
+        val entry = HistoryEntry("book.epub", "epub", vm.status, 1)
+
+        for ((language, expected) in mapOf("en" to "Save cancelled", "cs" to "Ukládání zrušeno", "sk" to "Ukladanie zrušené", "pl" to "Anulowano zapis")) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) })
+            assertEquals(expected, vm.status.text(localized))
+            assertEquals(expected, entry.status.text(localized))
+        }
+    }
+
+    @Test
+    fun workerStatusTransportPreservesArgumentsAndClassification() {
+        val context = RuntimeEnvironment.getApplication()
+        for (message in listOf(
+            StatusMessage(R.string.status_converting_progress, listOf("1", "3")),
+            StatusMessage(R.string.status_error, listOf("detail & #section\nsecond line"), isError = true),
+            StatusMessage(R.string.status_done, isSuccess = true),
+        )) {
+            val restored = StatusMessage.fromBundle(message.toBundle())
+            assertEquals(message, restored)
+            assertEquals(message.text(context), restored.text(context))
+        }
+        assertTrue(StatusMessage.fromBundle(android.os.Bundle()).isError)
+    }
+
+    @Test
+    fun bugReportMatchesTemplateAndPreservesEncodedDiagnostics() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val vm = ConverterViewModel()
+        vm.inputFileNames = listOf("book & notes.epub")
+        vm.outputFormat = "kfx"
+        vm.status = StatusMessage(R.string.status_error, listOf("invalid #section & title"), isError = true)
+
+        for (extraArgs in listOf("", "--title \"A&B\"")) {
+            vm.extraArgs = extraArgs
+
+            reportOnGitHub(activity, vm)
+
+            val intent = shadowOf(activity).nextStartedActivity
+            assertEquals(Intent.ACTION_VIEW, intent.action)
+            val uri = requireNotNull(intent.data)
+            assertEquals("https", uri.scheme)
+            assertEquals("github.com", uri.host)
+            assertEquals("/bilec/econverter/issues/new", uri.path)
+            assertEquals("bug", uri.getQueryParameter("labels"))
+            assertEquals("Conversion failed: epub \u2192 kfx", uri.getQueryParameter("title"))
+            assertEquals(
+                listOf(
+                    "## Bug Report",
+                    "",
+                    "- **Steps to reproduce:**",
+                    "- **Expected result:**",
+                    "- **Error:** ${vm.status.text(activity)}",
+                    "- **Input file:** ${vm.inputFileName}",
+                    "- **Output format:** ${vm.outputFormat}",
+                    "- **Backend:** ${vm.backend.label}",
+                    "- **Output profile:** ${vm.outputProfile}",
+                    "- **Device:** ${Build.MANUFACTURER} ${Build.MODEL}",
+                    "- **Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                    "- **Extra args:** $extraArgs",
+                    "",
+                    "Remove personal information before submitting.",
+                ).joinToString("\n", postfix = "\n"),
+                uri.getQueryParameter("body"),
+            )
+        }
+    }
+
     @Test
     @Config(sdk = [25])
     fun singleAndBatchSavesNumberDuplicatesBeforeEveryExtensionWithoutOverwriting() {
@@ -118,7 +196,7 @@ class ConverterViewModelTest {
         assertEquals(ConversionBackend.BOKO, restored.backend)
         assertFalse(restored.isInputSupported("book.docx"))
 
-        val entry = HistoryEntry("book.docx", "mobi", "Done", 1, listOf(Uri.parse("content://books/1")), listOf("book.docx"), ConversionBackend.CALIBRE)
+        val entry = HistoryEntry("book.docx", "mobi", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/1")), listOf("book.docx"), ConversionBackend.CALIBRE)
         restored.selectHistory(entry)
         assertEquals(ConversionBackend.CALIBRE, restored.backend)
         assertEquals("mobi", restored.outputFormat)
@@ -133,14 +211,14 @@ class ConverterViewModelTest {
         val vm = ConverterViewModel()
         vm.inputUris = listOf(Uri.parse("content://books/1"))
         vm.inputFileNames = listOf("first.epub")
-        vm.status = "Selected"
-        vm.history.add(HistoryEntry("first.epub", "epub", "Done", 1))
+        vm.status = StatusMessage(R.string.loading_selection)
+        vm.history.add(HistoryEntry("first.epub", "epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
 
         vm.clearSelection()
 
         assertFalse(vm.hasSelection)
         assertTrue(vm.inputFileNames.isEmpty())
-        assertEquals("", vm.status)
+        assertEquals(StatusMessage(), vm.status)
         assertEquals(1, vm.history.size)
     }
 
@@ -150,14 +228,14 @@ class ConverterViewModelTest {
         val uris = (1..3).map { Uri.parse("content://books/$it") }
         vm.inputUris = uris
         vm.inputFileNames = listOf("same.epub", "same.epub", "last.epub")
-        vm.history.add(HistoryEntry("same.epub", "epub", "Done", 1))
-        vm.status = "Selected"
+        vm.history.add(HistoryEntry("same.epub", "epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
+        vm.status = StatusMessage(R.string.loading_selection)
 
         vm.removeSelectedUri(uris[1])
 
         assertEquals(listOf(uris[0], uris[2]), vm.inputUris)
         assertEquals(listOf("same.epub", "last.epub"), vm.inputFileNames)
-        assertEquals("", vm.status)
+        assertEquals(StatusMessage(), vm.status)
         assertEquals(1, vm.history.size)
         vm.removeSelectedUri(uris[1])
         assertEquals(2, vm.inputUris.size)
@@ -174,7 +252,7 @@ class ConverterViewModelTest {
         val vm = ConverterViewModel()
         val uris = listOf(Uri.parse("content://books/1"), Uri.parse("content://books/2"))
         val names = listOf("first.epub", "second.epub")
-        val entry = HistoryEntry("2 eBooks", "azw3", "Done", 1, uris, names)
+        val entry = HistoryEntry("2 eBooks", "azw3", StatusMessage(R.string.status_done, isSuccess = true), 1, uris, names)
 
         vm.selectHistory(entry)
 
@@ -190,7 +268,7 @@ class ConverterViewModelTest {
         val uri = Uri.parse("content://books/1")
         vm.inputUris = listOf(uri)
         vm.inputFileNames = listOf("first.epub")
-        val entry = HistoryEntry("second.epub", "txt", "Done", 1, listOf(Uri.parse("content://books/2")), listOf("second.epub"))
+        val entry = HistoryEntry("second.epub", "txt", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/2")), listOf("second.epub"))
 
         for (busyState in 0..2) {
             vm.isConverting = busyState == 0
@@ -218,7 +296,7 @@ class ConverterViewModelTest {
         worker.cancel()
         val result = worker.run()
 
-        assertEquals("Cancelled", result.status)
+        assertEquals(StatusMessage(R.string.status_cancelled), result.status)
         assertFalse(directory.exists())
         assertEquals("source", original.readText())
         original.delete()

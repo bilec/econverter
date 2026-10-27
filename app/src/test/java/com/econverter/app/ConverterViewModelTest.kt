@@ -1,10 +1,13 @@
 package com.econverter.app
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Build
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
@@ -13,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -23,6 +27,49 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ConverterViewModelTest {
+    @Test
+    fun bugReportMatchesTemplateAndPreservesEncodedDiagnostics() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val vm = ConverterViewModel()
+        vm.inputFileNames = listOf("book & notes.epub")
+        vm.outputFormat = "kfx"
+        vm.status = "Error: invalid #section & title"
+
+        for (extraArgs in listOf("", "--title \"A&B\"")) {
+            vm.extraArgs = extraArgs
+
+            reportOnGitHub(activity, vm)
+
+            val intent = shadowOf(activity).nextStartedActivity
+            assertEquals(Intent.ACTION_VIEW, intent.action)
+            val uri = requireNotNull(intent.data)
+            assertEquals("https", uri.scheme)
+            assertEquals("github.com", uri.host)
+            assertEquals("/bilec/econverter/issues/new", uri.path)
+            assertEquals("bug", uri.getQueryParameter("labels"))
+            assertEquals("Conversion failed: epub \u2192 kfx", uri.getQueryParameter("title"))
+            assertEquals(
+                listOf(
+                    "## Bug Report",
+                    "",
+                    "- **Steps to reproduce:**",
+                    "- **Expected result:**",
+                    "- **Error:** ${vm.status}",
+                    "- **Input file:** ${vm.inputFileName}",
+                    "- **Output format:** ${vm.outputFormat}",
+                    "- **Backend:** ${vm.backend.label}",
+                    "- **Output profile:** ${vm.outputProfile}",
+                    "- **Device:** ${Build.MANUFACTURER} ${Build.MODEL}",
+                    "- **Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                    "- **Extra args:** $extraArgs",
+                    "",
+                    "Remove personal information before submitting.",
+                ).joinToString("\n", postfix = "\n"),
+                uri.getQueryParameter("body"),
+            )
+        }
+    }
+
     @Test
     @Config(sdk = [25])
     fun singleAndBatchSavesNumberDuplicatesBeforeEveryExtensionWithoutOverwriting() {

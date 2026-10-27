@@ -78,4 +78,7 @@ Community translations are welcome! To add a new language:
 
 1. Copy `app/src/main/res/values/strings.xml` to `app/src/main/res/values-<lang>/strings.xml` (e.g. `values-de/strings.xml`).
 2. Add your language tag to `app/src/main/res/xml/locales_config.xml`.
-3. Submit a pull request using the translation PR template.
+3. Submit a pull request with your changes.
+
+To request a language or share translations without a pull request, open an issue
+using the [translation template](.github/ISSUE_TEMPLATE/translation.md).

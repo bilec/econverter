@@ -98,14 +98,20 @@ private fun CenterDialogWindow() {
 
 internal fun reportOnGitHub(context: Context, vm: ConverterViewModel) {
     val body = buildString {
-        appendLine("**Error:** ${vm.status}")
-        appendLine("**Input file:** ${vm.inputFileName}")
-        appendLine("**Output format:** ${vm.outputFormat}")
-        appendLine("**Backend:** ${vm.backend.label}")
-        appendLine("**Output profile:** ${vm.outputProfile}")
-        appendLine("**Device:** ${Build.MANUFACTURER} ${Build.MODEL}")
-        appendLine("**Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-        if (vm.extraArgs.isNotBlank()) appendLine("**Extra args:** ${vm.extraArgs}")
+        appendLine("## Bug Report")
+        appendLine()
+        appendLine("- **Steps to reproduce:**")
+        appendLine("- **Expected result:**")
+        appendLine("- **Error:** ${vm.status}")
+        appendLine("- **Input file:** ${vm.inputFileName}")
+        appendLine("- **Output format:** ${vm.outputFormat}")
+        appendLine("- **Backend:** ${vm.backend.label}")
+        appendLine("- **Output profile:** ${vm.outputProfile}")
+        appendLine("- **Device:** ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("- **Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        appendLine("- **Extra args:** ${vm.extraArgs}")
+        appendLine()
+        appendLine("Remove personal information before submitting.")
     }
     val title = "Conversion failed: ${vm.inputFileName.substringAfterLast(".")} → ${vm.outputFormat}"
     val url = "$REPOSITORY_URL/issues/new" +

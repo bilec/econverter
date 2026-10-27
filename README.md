@@ -84,3 +84,10 @@ Community translations are welcome! To add a new language:
 
 To request a language or share translations without a pull request, open an issue
 using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
+
+## Screenshots
+
+| Conversion | Options |
+| --- | --- |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Expanded conversion options" width="250"> |
+| Select books and choose an output format. | Adjust conversion settings and book metadata. |

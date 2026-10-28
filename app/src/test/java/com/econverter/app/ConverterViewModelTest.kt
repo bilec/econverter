@@ -13,6 +13,8 @@ import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -25,10 +27,41 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
 import java.util.Locale
+import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ConverterViewModelTest {
+    @Test
+    fun startupCleanupRemovesOldRunsButPreservesNewRunsAndOriginals() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val runs = File(context.filesDir, "conversion-runs").apply { mkdirs() }
+        val stale = File(runs, "stale-${UUID.randomUUID()}").apply { mkdirs() }
+        val recent = File(runs, "recent-${UUID.randomUUID()}")
+        val original = File(context.filesDir, "original-${UUID.randomUUID()}.epub").apply { writeText("original book") }
+        try {
+            File(stale, "source").mkdirs()
+            File(stale, "source/input.epub").writeText("temporary input")
+            File(stale, "partial.kfx").writeText("unfinished output")
+            assertTrue(stale.setLastModified(1L))
+            val vm = ConverterViewModel()
+            assertTrue(recent.mkdirs())
+            val currentOutput = File(recent, "converted.epub").apply { writeText("current output") }
+            assertTrue(recent.setLastModified(System.currentTimeMillis() + 60_000L))
+
+            vm.purgeStaleTempFiles(context)
+            vm.viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }
+
+            assertFalse(stale.exists())
+            assertEquals("current output", currentOutput.readText())
+            assertEquals("original book", original.readText())
+        } finally {
+            stale.deleteRecursively()
+            recent.deleteRecursively()
+            original.delete()
+        }
+    }
+
     @Test
     fun statusAndHistoryResolveUsingTheCurrentLanguage() {
         val context = RuntimeEnvironment.getApplication()

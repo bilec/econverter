@@ -10,7 +10,13 @@ permissions:
   contents: write
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   release:
+    needs: checks
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +28,11 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
 
       - name: Set up Python 3.11
         id: python

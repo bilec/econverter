@@ -1,7 +1,9 @@
 package com.econverter.app
 
+import android.app.ActivityManager
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Process
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -34,6 +36,10 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 import javax.xml.parsers.DocumentBuilderFactory
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ConversionSmokeTest
 
 @RunWith(AndroidJUnit4::class)
 class ConversionWorkerTest {
@@ -175,6 +181,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun sameFormatConversionKeepsOutputsNamedLikeTemporaryFiles() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -215,6 +222,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun kfxConversionLoadsNativeBackend() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -337,6 +345,52 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
+    fun workerDeathDiscardsOutputsPreservesOriginalsAndAllowsAnotherRun() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val largeSource = makeEpub(File(directory, "large.epub"), 20_000)
+            val originals = listOf(source, largeSource).associateWith { it.readBytes() }
+            val runDirectory = File(directory, "run")
+            var killedPid: Int? = null
+            val worker = ConversionWorker(
+                context,
+                runDirectory,
+                listOf(Uri.fromFile(source), Uri.fromFile(largeSource)),
+                listOf(source.name, largeSource.name),
+                "epub",
+                emptyList(),
+            ) { progress ->
+                if (progress.resourceId == R.string.status_converting_progress && progress.args == listOf("1", "2") && killedPid == null) {
+                    assertTrue("First output must exist before worker death", File(runDirectory, "0/source.epub").isFile)
+                    val process = context.getSystemService(ActivityManager::class.java).runningAppProcesses.single { it.processName == "${context.packageName}:conversion" }
+                    assertNotEquals("Never kill the test process", Process.myPid(), process.pid)
+                    killedPid = process.pid
+                    Process.killProcess(process.pid)
+                }
+            }
+
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+
+            assertNotNull("Worker process must have been killed", killedPid)
+            assertTrue(result.status.text(context), result.status.isError)
+            assertFalse(result.status.isSuccess)
+            assertTrue(result.files.isEmpty())
+            assertFalse(runDirectory.exists())
+            originals.forEach { (file, bytes) -> assertArrayEquals("Original must be unchanged: ${file.name}", bytes, file.readBytes()) }
+
+            val next = ConversionWorker(context, File(directory, "next"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val nextResult = withTimeout(90_000) { withContext(Dispatchers.Main) { next.run() } }
+            assertTrue(nextResult.status.text(context), nextResult.status.isSuccess)
+            assertTrue(nextResult.files.single().isFile)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
     fun cancellingBatchDiscardsCompletedOutputsAndAllowsAnotherRun() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         val existingScratch = engineScratchDirectories()

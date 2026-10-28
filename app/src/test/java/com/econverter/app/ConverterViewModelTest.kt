@@ -77,10 +77,32 @@ class ConverterViewModelTest {
     }
 
     @Test
+    fun conversionProgressUsesWorkerUpdatesAndCompletesBeforeSaving() {
+        val vm = ConverterViewModel()
+        assertNull(vm.conversionProgress)
+        vm.isConverting = true
+        vm.status = StatusMessage(R.string.status_converting)
+        assertNull(vm.conversionProgress)
+        for (progress in listOf(0f, 0.5f)) {
+            vm.status = StatusMessage(R.string.status_converting_progress, progress = progress)
+            assertEquals(progress, vm.conversionProgress)
+        }
+        vm.isConverting = false
+        vm.status = StatusMessage(R.string.status_done, isSuccess = true)
+        vm.pendingSave = true
+        assertEquals(1f, vm.conversionProgress)
+        vm.isSaving = true
+        assertNull(vm.conversionProgress)
+        vm.isSaving = false
+        vm.discardPendingSave()
+        assertNull(vm.conversionProgress)
+    }
+
+    @Test
     fun workerStatusTransportPreservesArgumentsAndClassification() {
         val context = RuntimeEnvironment.getApplication()
         for (message in listOf(
-            StatusMessage(R.string.status_converting_progress, listOf("1", "3")),
+            StatusMessage(R.string.status_converting_progress, listOf("1", "3"), progress = 1f / 3),
             StatusMessage(R.string.status_error, listOf("detail & #section\nsecond line"), isError = true),
             StatusMessage(R.string.status_done, isSuccess = true),
         )) {

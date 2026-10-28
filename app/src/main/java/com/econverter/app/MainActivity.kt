@@ -127,7 +127,12 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                 ) {
                     Column(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (vm.isConverting || vm.isSaving || vm.pendingSave) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                            val progress = vm.conversionProgress
+                            if (progress != null) {
+                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                            } else {
+                                LinearProgressIndicator(Modifier.fillMaxWidth())
+                            }
                         }
                         Button(
                             onClick = { if (vm.isConverting) vm.cancelConversion() else vm.convert(context) },

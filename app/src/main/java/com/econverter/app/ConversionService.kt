@@ -199,7 +199,7 @@ class ConversionService : Service() {
         val errors = mutableListOf<String>()
 
         for (index in uris.indices) {
-            send(reply, PROGRESS, StatusMessage(R.string.status_converting_progress, listOf(index.toString(), uris.size.toString())).toBundle())
+            send(reply, PROGRESS, StatusMessage(R.string.status_converting_progress, listOf(index.toString(), uris.size.toString()), progress = if (uris.size > 1) index.toFloat() / uris.size else null).toBundle())
             val bookDirectory = File(directory, index.toString()).apply { check(mkdirs()) { "Could not create temporary directory" } }
             val name = File(names[index]).name
             val inputDirectory = File(bookDirectory, "source").apply { check(mkdir()) { "Could not create input directory" } }

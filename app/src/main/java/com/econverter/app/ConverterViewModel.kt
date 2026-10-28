@@ -28,6 +28,7 @@ data class StatusMessage(
     val args: List<String> = emptyList(),
     val isError: Boolean = false,
     val isSuccess: Boolean = false,
+    val progress: Float? = null,
 ) {
     fun text(context: Context): String = if (resourceId == 0) "" else context.getString(resourceId, *args.toTypedArray())
 
@@ -36,11 +37,12 @@ data class StatusMessage(
         putStringArrayList("statusArgs", ArrayList(args))
         putBoolean("statusError", isError)
         putBoolean("statusSuccess", isSuccess)
+        progress?.let { putFloat("statusProgress", it) }
     }
 
     companion object {
         fun fromBundle(bundle: Bundle): StatusMessage = if (bundle.containsKey("statusResource")) {
-            StatusMessage(bundle.getInt("statusResource"), bundle.getStringArrayList("statusArgs").orEmpty(), bundle.getBoolean("statusError"), bundle.getBoolean("statusSuccess"))
+            StatusMessage(bundle.getInt("statusResource"), bundle.getStringArrayList("statusArgs").orEmpty(), bundle.getBoolean("statusError"), bundle.getBoolean("statusSuccess"), if (bundle.containsKey("statusProgress")) bundle.getFloat("statusProgress") else null)
         } else {
             StatusMessage(R.string.status_worker_missing_result, isError = true)
         }
@@ -97,6 +99,13 @@ class ConverterViewModel : ViewModel() {
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
     val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
     val canConvert: Boolean get() = hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
+    val conversionProgress: Float?
+        get() = when {
+            isSaving -> null
+            pendingSave -> 1f
+            isConverting -> status.progress
+            else -> null
+        }
 
     fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
         if (isConverting || isSaving || pendingSave) return

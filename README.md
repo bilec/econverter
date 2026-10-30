@@ -90,7 +90,10 @@ using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
 
 ## Screenshots
 
-| Conversion | Options |
+| Conversion | Backend Settings |
 | --- | --- |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Expanded conversion options" width="250"> |
-| Select books and choose an output format. | Adjust conversion settings and book metadata. |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" alt="Conversion backend settings" width="250" height="556" /> |
+| **Options** | **Save and Share** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" alt="Expanded conversion options" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Completed conversion with Save and Share actions" width="250" height="556" /> |
+| **Dark Mode** | |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> | |

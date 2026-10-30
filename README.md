@@ -14,7 +14,7 @@ Android app for converting e-books individually or in batches with Calibre and b
 1. **Select eBooks**, then choose an **Output Format**. **Add eBooks** extends the queue.
 2. Optionally open **Conversion options** for Metadata, Typography, Margins, or
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
-3. Tap **Convert**, then choose a folder to save the results.
+3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.

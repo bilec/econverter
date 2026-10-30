@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="status_text">%1$s</string>
     <string name="status_error">Chyba: %1$s</string>
     <string name="status_selected_skipped">Vybrané e-knihy: %1$s (nepodporované přeskočeny: %2$s)</string>
     <string name="status_unsupported_selection">Vybrány nepodporované formáty</string>
@@ -9,7 +8,6 @@
     <string name="status_converting_progress">Převádění... hotovo %1$s/%2$s</string>
     <string name="status_cancelled">Zrušeno</string>
     <string name="status_save_cancelled">Ukládání zrušeno</string>
-    <string name="status_checking_dependencies">Kontrola závislostí...</string>
     <string name="status_saved_batch">E-knihy uložené do složky: %1$s</string>
     <string name="status_saved_file">Uloženo: %1$s</string>
     <string name="status_save_failed">Chyba: soubory nelze zapsat</string>
@@ -38,7 +36,8 @@
     <string name="history">Historie (%1$d)</string>
     <string name="loading_selection">Načítání výběru...</string>
     <string name="saving">Ukládání...</string>
-    <string name="choose_save_folder">Vyberte složku pro uložení</string>
+    <string name="save">Uložit</string>
+    <string name="share">Sdílet</string>
     <string name="app_title">eBook Converter</string>
     <string name="settings">Nastavení</string>
     <string name="about">O aplikaci</string>

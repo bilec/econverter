@@ -50,8 +50,8 @@
 
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 
-3. **Output File Saving**:
-   User selects a folder via Storage Access Framework (`OpenDocumentTree`) → `ConverterViewModel.kt` creates documents and copies the generated outputs. MIME types are inferred from file extensions, with a wildcard fallback. Existing names receive numeric suffixes rather than being overwritten.
+3. **Output File Saving & Sharing**:
+   When conversion completes, the bottom bar offers Save, Share, and Cancel actions. User can select a folder via Storage Access Framework (`OpenDocumentTree`) → `ConverterViewModel.kt` creates documents and copies the generated outputs, or share outputs via Android's share sheet using `FileProvider` URIs scoped to `conversion-runs/`. Shared run directories are preserved across cleanup until the retention window or next app launch. MIME types are inferred from file extensions, and existing names receive numeric suffixes rather than being overwritten.
 
 ## Omitted Generated / Build Paths
 

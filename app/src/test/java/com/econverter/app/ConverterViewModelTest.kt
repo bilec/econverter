@@ -67,7 +67,7 @@ class ConverterViewModelTest {
         val context = RuntimeEnvironment.getApplication()
         val vm = ConverterViewModel()
         vm.discardPendingSave()
-        val entry = HistoryEntry("book.epub", "epub", vm.status, 1)
+        val entry = HistoryEntry("epub", vm.status, 1)
 
         for ((language, expected) in mapOf("en" to "Save cancelled", "cs" to "Ukládání zrušeno", "sk" to "Ukladanie zrušené", "pl" to "Anulowano zapis")) {
             val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) })
@@ -91,11 +91,16 @@ class ConverterViewModelTest {
         vm.status = StatusMessage(R.string.status_done, isSuccess = true)
         vm.pendingSave = true
         assertEquals(1f, vm.conversionProgress)
+        assertFalse(vm.shouldAutoDismissStatus)
         vm.isSaving = true
         assertNull(vm.conversionProgress)
+        assertFalse(vm.shouldAutoDismissStatus)
         vm.isSaving = false
         vm.discardPendingSave()
         assertNull(vm.conversionProgress)
+        assertTrue(vm.shouldAutoDismissStatus)
+        vm.status = StatusMessage(R.string.status_error, listOf("boom"), isError = true)
+        assertFalse(vm.shouldAutoDismissStatus)
     }
 
     @Test
@@ -251,7 +256,7 @@ class ConverterViewModelTest {
         assertEquals(ConversionBackend.BOKO, restored.backend)
         assertFalse(restored.isInputSupported("book.docx"))
 
-        val entry = HistoryEntry("book.docx", "mobi", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/1")), listOf("book.docx"), ConversionBackend.CALIBRE)
+        val entry = HistoryEntry("mobi", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/1")), listOf("book.docx"), ConversionBackend.CALIBRE)
         restored.selectHistory(entry)
         assertEquals(ConversionBackend.CALIBRE, restored.backend)
         assertEquals("mobi", restored.outputFormat)
@@ -267,7 +272,7 @@ class ConverterViewModelTest {
         vm.inputUris = listOf(Uri.parse("content://books/1"))
         vm.inputFileNames = listOf("first.epub")
         vm.status = StatusMessage(R.string.loading_selection)
-        vm.history.add(HistoryEntry("first.epub", "epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
+        vm.history.add(HistoryEntry("epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
 
         vm.clearSelection()
 
@@ -283,7 +288,7 @@ class ConverterViewModelTest {
         val uris = (1..3).map { Uri.parse("content://books/$it") }
         vm.inputUris = uris
         vm.inputFileNames = listOf("same.epub", "same.epub", "last.epub")
-        vm.history.add(HistoryEntry("same.epub", "epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
+        vm.history.add(HistoryEntry("epub", StatusMessage(R.string.status_done, isSuccess = true), 1))
         vm.status = StatusMessage(R.string.loading_selection)
 
         vm.removeSelectedUri(uris[1])
@@ -307,7 +312,7 @@ class ConverterViewModelTest {
         val vm = ConverterViewModel()
         val uris = listOf(Uri.parse("content://books/1"), Uri.parse("content://books/2"))
         val names = listOf("first.epub", "second.epub")
-        val entry = HistoryEntry("2 eBooks", "azw3", StatusMessage(R.string.status_done, isSuccess = true), 1, uris, names)
+        val entry = HistoryEntry("azw3", StatusMessage(R.string.status_done, isSuccess = true), 1, uris, names)
 
         vm.selectHistory(entry)
 
@@ -323,7 +328,7 @@ class ConverterViewModelTest {
         val uri = Uri.parse("content://books/1")
         vm.inputUris = listOf(uri)
         vm.inputFileNames = listOf("first.epub")
-        val entry = HistoryEntry("second.epub", "txt", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/2")), listOf("second.epub"))
+        val entry = HistoryEntry("txt", StatusMessage(R.string.status_done, isSuccess = true), 1, listOf(Uri.parse("content://books/2")), listOf("second.epub"))
 
         for (busyState in 0..2) {
             vm.isConverting = busyState == 0
@@ -355,6 +360,100 @@ class ConverterViewModelTest {
         assertFalse(directory.exists())
         assertEquals("source", original.readText())
         original.delete()
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun shareIntentExposesSingleAndBatchOutputsAndPreservesSharedFilesAcrossCleanup() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val runs = File(context.filesDir, "conversion-runs").apply { mkdirs() }
+        val singleRun = File(runs, "single-${UUID.randomUUID()}").apply { mkdirs() }
+        val batchRun = File(runs, "batch-${UUID.randomUUID()}").apply { mkdirs() }
+        val unsharedRun = File(runs, "unshared-${UUID.randomUUID()}").apply { mkdirs() }
+        val outsideFile = File(context.filesDir, "outside-${UUID.randomUUID()}.epub").apply { writeText("secret") }
+        try {
+            val vm = ConverterViewModel()
+            assertNull(vm.createShareIntent(context))
+
+            val singleOut = File(singleRun, "0/book.epub").apply {
+                parentFile?.mkdirs()
+                writeText("epub-data")
+            }
+            vm.internalWorkDirectory = singleRun
+            vm.outputFiles = listOf(singleOut)
+            vm.pendingSave = true
+            val chooser = requireNotNull(vm.createShareIntent(context))
+            assertEquals(Intent.ACTION_CHOOSER, chooser.action)
+            val singleIntent = requireNotNull(chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT))
+            assertEquals(Intent.ACTION_SEND, singleIntent.action)
+            assertEquals("application/epub+zip", singleIntent.type)
+            assertTrue(singleIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+            val singleUri = requireNotNull(singleIntent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
+            assertEquals("${context.packageName}.fileprovider", singleUri.authority)
+            assertEquals("epub-data", context.contentResolver.openInputStream(singleUri)!!.bufferedReader().use { it.readText() })
+            assertTrue(vm.pendingSave)
+
+            // Dismissing pendingSave after sharing unlocks the UI without deleting shared files needed by the receiver.
+            vm.discardPendingSave()
+            assertFalse(vm.pendingSave)
+            assertTrue(singleOut.exists())
+
+            // Starting and discarding an unshared run deletes only the unshared run directory.
+            val unsharedOut = File(unsharedRun, "0/temp.epub").apply {
+                parentFile?.mkdirs()
+                writeText("unshared")
+            }
+            vm.internalWorkDirectory = unsharedRun
+            vm.outputFiles = listOf(unsharedOut)
+            vm.pendingSave = true
+            vm.discardPendingSave()
+            assertFalse(unsharedRun.exists())
+            assertTrue(singleOut.exists())
+
+            // Batch sharing uses ACTION_SEND_MULTIPLE and still allows saving afterward.
+            val batchFirst = File(batchRun, "0/first.kfx").apply {
+                parentFile?.mkdirs()
+                writeText("kfx-1")
+            }
+            val batchSecond = File(batchRun, "1/second.kfx").apply {
+                parentFile?.mkdirs()
+                writeText("kfx-2")
+            }
+            vm.internalWorkDirectory = batchRun
+            vm.outputFiles = listOf(batchFirst, batchSecond)
+            vm.pendingSave = true
+            val batchChooser = requireNotNull(vm.createShareIntent(context))
+            val batchIntent = requireNotNull(batchChooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT))
+            assertEquals(Intent.ACTION_SEND_MULTIPLE, batchIntent.action)
+            assertEquals("application/octet-stream", batchIntent.type)
+            val batchUris = requireNotNull(batchIntent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))
+            assertEquals(listOf("kfx-1", "kfx-2"), batchUris.map { uri -> context.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() } })
+            assertEquals(2, batchIntent.clipData?.itemCount)
+            assertTrue(vm.pendingSave)
+
+            // Files outside conversion-runs cannot be exposed through FileProvider.
+            vm.internalWorkDirectory = context.filesDir
+            vm.outputFiles = listOf(outsideFile)
+            vm.pendingSave = true
+            assertThrows(IllegalArgumentException::class.java) {
+                vm.createShareIntent(context)
+            }
+
+            // Expired shared runs are cleaned up once past the retention cutoff, while recent shared runs remain readable.
+            val cutoff = System.currentTimeMillis()
+            assertTrue(singleRun.setLastModified(cutoff - 10_000L))
+            assertTrue(batchRun.setLastModified(cutoff + 10_000L))
+            vm.purgeStaleTempFiles(context, cutoff)
+            vm.viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }
+            assertFalse(singleRun.exists())
+            assertTrue(batchFirst.exists())
+            assertEquals("secret", outsideFile.readText())
+        } finally {
+            singleRun.deleteRecursively()
+            batchRun.deleteRecursively()
+            unsharedRun.deleteRecursively()
+            outsideFile.delete()
+        }
     }
 
     private class SaveTestDocumentsProvider(

@@ -86,7 +86,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run conversion smoke tests
+      - name: Run UI and conversion tests
         uses: reactivecircus/android-emulator-runner@v2
         env:
           CHAQUOPY_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
@@ -97,7 +97,7 @@ jobs:
           disable-animations: true
           script: >-
             ./gradlew :app:connectedDebugAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.annotation=com.econverter.app.ConversionSmokeTest
+            ${{ github.event_name != 'workflow_dispatch' && '-Pandroid.testInstrumentationRunnerArguments.annotation=com.econverter.app.ConversionSmokeTest' || '' }}
 
       - name: Upload emulator test reports
         if: failure()

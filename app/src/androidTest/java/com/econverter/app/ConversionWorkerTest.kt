@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -27,6 +28,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,7 +50,15 @@ class ConversionWorkerTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @Before
+    fun resetBackend() {
+        composeRule.runOnIdle {
+            ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java].selectBackend(ConversionBackend.AUTO, context)
+        }
+    }
+
     @Test
+    @ConversionSmokeTest
     fun emptyQueueShowsOutputSettingsAndDisabledConvertAction() {
         composeRule.onNodeWithText("Your books").assertIsDisplayed()
         composeRule.onNodeWithText("No books selected").assertIsDisplayed()
@@ -58,6 +68,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun selectedQueueListsBooksAndClearsSelection() {
         val names = listOf("A very long book title that should wrap without pushing controls off screen.epub", "Second book.epub")
         composeRule.runOnIdle {
@@ -75,6 +86,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun selectedBooksCanBeRemovedBySwipingInEitherDirection() {
         val names = listOf("First.epub", "Second.epub", "Third.epub")
         composeRule.runOnIdle {
@@ -94,6 +106,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun convertActionStaysVisibleWhileScrollingOptions() {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
@@ -105,6 +118,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun optionGroupsStartCollapsedAndRetainEditedValues() {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
@@ -134,6 +148,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun aboutDialogIsVerticallyCentered() {
         composeRule.onNodeWithContentDescription("About").performClick()
         composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
@@ -146,6 +161,7 @@ class ConversionWorkerTest {
     }
 
     @Test
+    @ConversionSmokeTest
     fun backendSettingsControlOutputChoicesAndOptions() {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
@@ -178,6 +194,197 @@ class ConversionWorkerTest {
         composeRule.onNodeWithText("Auto", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Close").performClick()
         composeRule.onNodeWithText("Backend: Auto").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun selectionSkipsUnsupportedBooksAndAppendsSupportedOnes() {
+        lateinit var vm: ConverterViewModel
+        val original = Uri.parse("file:///books/original.epub")
+        val supported = Uri.parse("file:///books/SECOND.EPUB")
+        composeRule.runOnIdle {
+            vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+            vm.inputUris = listOf(original)
+            vm.inputFileNames = listOf("original.epub")
+            vm.addSelectedUris(context, listOf(supported, Uri.parse("file:///books/unsupported.zip")))
+        }
+        composeRule.waitUntil { vm.status.resourceId != R.string.loading_selection }
+        composeRule.runOnIdle {
+            assertEquals(listOf(original, supported), vm.inputUris)
+            assertEquals(listOf("original.epub", "SECOND.EPUB"), vm.inputFileNames)
+            assertEquals(StatusMessage(R.string.status_selected_skipped, listOf("2", "1")), vm.status)
+            assertTrue(vm.canConvert)
+            vm.addSelectedUris(context, listOf(Uri.parse("file:///books/unsupported.zip")))
+        }
+        composeRule.waitUntil { vm.status.resourceId != R.string.loading_selection }
+        composeRule.runOnIdle {
+            assertEquals(listOf(original, supported), vm.inputUris)
+            assertEquals(StatusMessage(R.string.status_unsupported_selection), vm.status)
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun recreationPreservesSelectionOptionsAndPendingOutputs() {
+        val directory = File(context.filesDir, "conversion-runs/test-${UUID.randomUUID()}").apply { mkdirs() }
+        val output = File(directory, "book.epub").apply { writeText("pending output") }
+        val source = Uri.parse("content://books/source.epub")
+        try {
+            composeRule.runOnIdle {
+                val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+                vm.inputUris = listOf(source)
+                vm.inputFileNames = listOf("source.epub")
+                vm.authors = "Retained author"
+                vm.outputFiles = listOf(output)
+                vm.internalWorkDirectory = directory
+                vm.pendingSave = true
+                vm.status = StatusMessage(R.string.status_done, isSuccess = true)
+            }
+
+            composeRule.activityRule.scenario.recreate()
+
+            composeRule.onNodeWithText("Save").assertIsDisplayed().assertIsEnabled()
+            composeRule.onNodeWithText("Share").assertIsDisplayed().assertIsEnabled()
+            composeRule.onNodeWithContentDescription("Settings").assertIsNotEnabled()
+            composeRule.runOnIdle {
+                val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+                assertEquals(listOf(source), vm.inputUris)
+                assertEquals(listOf("source.epub"), vm.inputFileNames)
+                assertEquals("Retained author", vm.authors)
+                assertEquals(listOf(output), vm.outputFiles)
+                assertEquals("pending output", output.readText())
+                assertTrue(vm.pendingSave)
+            }
+            composeRule.onNodeWithContentDescription("Cancel").performClick()
+            composeRule.onNodeWithText("Convert").assertIsEnabled()
+            assertFalse(directory.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun corruptAndMissingContentUrisDoNotDiscardSuccessfulBooks() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "conversion-runs/test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "valid.epub"))
+            val corrupt = File(directory, "corrupt.epub").apply { writeText("Not an EPUB") }
+            val missing = File(directory, "missing.epub")
+            val originals = listOf(source, corrupt).associateWith { it.readBytes() }
+            for (backend in listOf(ConversionBackend.AUTO, ConversionBackend.BOKO)) {
+                for ((index, books) in listOf(listOf(corrupt), listOf(missing), listOf(source, corrupt, missing)).withIndex()) {
+                    val runDirectory = File(directory, "${backend.name}-$index")
+                    val uris = books.map { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) }
+                    val worker = ConversionWorker(context, runDirectory, uris, books.map { it.name }, "epub", emptyList(), backend)
+
+                    val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+
+                    if (source in books) {
+                        assertTrue(result.status.text(context), result.status.isSuccess)
+                        assertEquals(R.string.status_done_partial, result.status.resourceId)
+                        assertEquals(listOf("1", "2"), result.status.args.take(2))
+                        assertTrue(result.status.args.last().contains("corrupt.epub"))
+                        assertTrue(result.status.args.last().contains("missing.epub"))
+                        val output = result.files.single()
+                        assertEquals("valid.epub", output.name)
+                        ZipFile(output).use { assertNotNull(it.getEntry("mimetype")) }
+                        assertFalse(File(runDirectory, "1/corrupt.epub").exists())
+                        assertFalse(File(runDirectory, "2/missing.epub").exists())
+                        books.indices.forEach { assertFalse(File(runDirectory, "$it/source").exists()) }
+                    } else {
+                        assertTrue(result.status.text(context), result.status.isError)
+                        assertTrue(result.files.isEmpty())
+                        assertFalse(runDirectory.exists())
+                    }
+                    originals.forEach { (file, bytes) -> assertArrayEquals(bytes, file.readBytes()) }
+                }
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun metadataOptionsPreserveQuotedValuesAndOnlyApplyEpubVersionToEpub() {
+        val directory = File(context.filesDir, "conversion-runs/test-${UUID.randomUUID()}").apply { mkdirs() }
+        lateinit var vm: ConverterViewModel
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", source)
+            for (format in listOf("epub", "txt")) {
+                composeRule.runOnIdle {
+                    vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+                    vm.inputUris = listOf(uri)
+                    vm.inputFileNames = listOf(source.name)
+                    vm.outputFormat = format
+                    vm.epubVersion = if (format == "epub") "3" else "invalid-for-epub"
+                    vm.title = "Form title"
+                    vm.authors = "Option Author"
+                    vm.extraArgs = "--title \"Quoted title & notes\" --publisher \u201cQuoted publisher\u201d"
+                    vm.convert(context)
+                }
+                composeRule.waitUntil(90_000) { !vm.isConverting }
+                composeRule.runOnIdle {
+                    assertTrue(vm.status.text(context), vm.status.isSuccess)
+                    assertTrue(vm.pendingSave)
+                    val output = vm.outputFiles.single()
+                    if (format == "epub") {
+                        ZipFile(output).use { zip ->
+                            val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
+                            val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                            val document = zip.getInputStream(opf).use { factory.newDocumentBuilder().parse(it) }
+                            assertEquals("3.0", document.documentElement.getAttribute("version"))
+                            val namespace = "http://purl.org/dc/elements/1.1/"
+                            assertEquals("Quoted title & notes", document.getElementsByTagNameNS(namespace, "title").item(0).textContent)
+                            assertEquals("Quoted publisher", document.getElementsByTagNameNS(namespace, "publisher").item(0).textContent)
+                            assertEquals("Option Author", document.getElementsByTagNameNS(namespace, "creator").item(0).textContent)
+                        }
+                    } else {
+                        assertTrue(output.readText().contains("Book text."))
+                    }
+                    vm.discardPendingSave()
+                }
+            }
+        } finally {
+            composeRule.runOnIdle { ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java].discardPendingSave() }
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun batchOptionsPreserveIndividualTitlesAndApplySharedAuthors() {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        lateinit var vm: ConverterViewModel
+        try {
+            val sources = listOf("First", "Second").map { File(directory, "$it.txt").apply { writeText("Book text.") } }
+            composeRule.runOnIdle {
+                vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+                vm.inputUris = sources.map(Uri::fromFile)
+                vm.inputFileNames = sources.map { it.name }
+                vm.title = "Must not replace individual titles"
+                vm.authors = "Batch Author"
+                vm.convert(context)
+            }
+            composeRule.waitUntil(90_000) { !vm.isConverting }
+            composeRule.runOnIdle {
+                assertTrue(vm.status.text(context), vm.status.isSuccess)
+                assertEquals(2, vm.outputFiles.size)
+                for ((source, output) in sources.zip(vm.outputFiles)) {
+                    ZipFile(output).use { zip ->
+                        val opf = zip.entries().asSequence().first { it.name.endsWith(".opf") }
+                        val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                        val document = zip.getInputStream(opf).use { factory.newDocumentBuilder().parse(it) }
+                        val namespace = "http://purl.org/dc/elements/1.1/"
+                        assertEquals(source.nameWithoutExtension, document.getElementsByTagNameNS(namespace, "title").item(0).textContent)
+                        assertEquals("Batch Author", document.getElementsByTagNameNS(namespace, "creator").item(0).textContent)
+                    }
+                }
+            }
+        } finally {
+            composeRule.runOnIdle { ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java].discardPendingSave() }
+            directory.deleteRecursively()
+        }
     }
 
     @Test

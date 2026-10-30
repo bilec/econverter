@@ -51,6 +51,8 @@ or `CHAQUOPY_BUILD_PYTHON` set to its absolute path). Android Studio is optional
 | --- | --- |
 | `./gradlew assembleDebug` | Build the debug APK. |
 | `./gradlew installDebug` | Install on a connected device or emulator. |
+| `./gradlew check` | Run lint, formatting checks, and unit tests. |
+| `./gradlew :app:connectedDebugAndroidTest` | Run device/emulator tests. |
 
 Engine versions are pinned in [gradle.properties](gradle.properties) by
 `EBOOK_CONVERTER_LIB_VERSION`, `PYPDFIUM2_VERSION`, and `BOKO_ANDROID_VERSION`.

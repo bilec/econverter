@@ -24,6 +24,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
 import java.util.Locale
@@ -363,6 +366,144 @@ class ConverterViewModelTest {
     }
 
     @Test
+    fun invalidSelectionsCannotStartConversion() {
+        val context = RuntimeEnvironment.getApplication()
+        val uri = Uri.parse("content://books/1")
+        for ((uris, names) in listOf(
+            listOf(uri) to emptyList(),
+            listOf(uri, uri) to listOf("book.epub"),
+            listOf(uri) to listOf("book.unknown"),
+            listOf(uri) to listOf("book"),
+        )) {
+            val vm = ConverterViewModel()
+            vm.inputUris = uris
+            vm.inputFileNames = names
+
+            assertFalse(vm.canConvert)
+            vm.convert(context)
+
+            assertTrue(vm.status.isError)
+            assertFalse(vm.isConverting)
+            assertNull(vm.internalWorkDirectory)
+            assertTrue(vm.outputFiles.isEmpty())
+        }
+    }
+
+    @Test
+    fun addingBooksWhileBusyDoesNotChangeSelectionOrStatus() {
+        val context = RuntimeEnvironment.getApplication()
+        val vm = ConverterViewModel()
+        val original = Uri.parse("content://books/original.epub")
+        vm.inputUris = listOf(original)
+        vm.inputFileNames = listOf("original.epub")
+        val status = StatusMessage(R.string.status_converting)
+        vm.status = status
+        for (busyState in 0..2) {
+            vm.isConverting = busyState == 0
+            vm.isSaving = busyState == 1
+            vm.pendingSave = busyState == 2
+
+            vm.addSelectedUris(context, listOf(Uri.parse("content://books/new.epub")))
+
+            assertEquals(listOf(original), vm.inputUris)
+            assertEquals(listOf("original.epub"), vm.inputFileNames)
+            assertEquals(status, vm.status)
+        }
+    }
+
+    @Test
+    @Config(sdk = [25])
+    fun rejectedDocumentCreationAndDeniedWritesPreserveExistingFiles() {
+        val context = RuntimeEnvironment.getApplication()
+        val directory = File(context.cacheDir, "save-failures-${UUID.randomUUID()}").apply { mkdirs() }
+        val source = File(directory, "source/book.epub").apply {
+            parentFile!!.mkdirs()
+            writeText("converted")
+        }
+        val destination = File(directory, "destination").apply { mkdirs() }
+        val original = File(destination, "book.epub").apply { writeText("original") }
+        val authority = "com.econverter.app.save-failure-test"
+        val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
+        try {
+            for (denyWrites in listOf(false, true)) {
+                val provider = SaveTestDocumentsProvider(destination, authority, shadowOf(context.contentResolver), rejectedNames = if (denyWrites) emptySet() else setOf("book(1).epub"), denyWrites = denyWrites)
+                provider.attachInfo(
+                    context,
+                    ProviderInfo().apply {
+                        this.authority = authority
+                        exported = true
+                        grantUriPermissions = true
+                        readPermission = Manifest.permission.MANAGE_DOCUMENTS
+                        writePermission = Manifest.permission.MANAGE_DOCUMENTS
+                    },
+                )
+                ShadowContentResolver.registerProviderInternal(authority, provider)
+                val vm = ConverterViewModel()
+
+                assertFalse(vm.saveToDirectoryUri(context, treeUri, emptyList()))
+                if (denyWrites) {
+                    assertThrows(SecurityException::class.java) { vm.saveToDirectoryUri(context, treeUri, listOf(source)) }
+                } else {
+                    assertFalse(vm.saveToDirectoryUri(context, treeUri, listOf(source)))
+                    assertFalse(File(destination, "book(1).epub").exists())
+                }
+                assertEquals("original", original.readText())
+                assertEquals("converted", source.readText())
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @Config(sdk = [25], shadows = [UnavailableOutputStreamResolver::class])
+    fun batchSaveContinuesPastRejectedDocumentsAndNullStreams() {
+        val context = RuntimeEnvironment.getApplication()
+        val directory = File(context.cacheDir, "partial-save-${UUID.randomUUID()}").apply { mkdirs() }
+        val blocked = File(directory, "blocked.epub").apply { writeText("blocked output") }
+        val saved = File(directory, "saved.epub").apply { writeText("saved output") }
+        val authority = "com.econverter.app.partial-save-test"
+        val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
+        try {
+            for (nullStreams in listOf(false, true)) {
+                val destination = File(directory, "destination-$nullStreams").apply { mkdirs() }
+                val original = File(destination, "blocked.epub").apply { writeText("original") }
+                val failedNames = setOf("blocked(1).epub")
+                val provider = SaveTestDocumentsProvider(
+                    destination,
+                    authority,
+                    shadowOf(context.contentResolver),
+                    rejectedNames = if (nullStreams) emptySet() else failedNames,
+                )
+                provider.attachInfo(
+                    context,
+                    ProviderInfo().apply {
+                        this.authority = authority
+                        exported = true
+                        grantUriPermissions = true
+                        readPermission = Manifest.permission.MANAGE_DOCUMENTS
+                        writePermission = Manifest.permission.MANAGE_DOCUMENTS
+                    },
+                )
+                ShadowContentResolver.registerProviderInternal(authority, provider)
+                Shadow.extract<UnavailableOutputStreamResolver>(context.contentResolver).unavailableUri = if (nullStreams) DocumentsContract.buildDocumentUriUsingTree(treeUri, "blocked(1).epub") else null
+                val vm = ConverterViewModel()
+
+                assertFalse(vm.saveToDirectoryUri(context, treeUri, listOf(blocked)))
+                if (nullStreams) assertTrue(File(destination, "blocked(1).epub").delete())
+                assertTrue(vm.saveToDirectoryUri(context, treeUri, listOf(blocked, saved)))
+
+                assertEquals("saved output", File(destination, "saved.epub").readText())
+                assertEquals("original", original.readText())
+                assertEquals("blocked output", blocked.readText())
+                assertEquals("saved output", saved.readText())
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     @Suppress("DEPRECATION")
     fun shareIntentExposesSingleAndBatchOutputsAndPreservesSharedFilesAcrossCleanup() = runBlocking<Unit> {
         val context = RuntimeEnvironment.getApplication()
@@ -456,10 +597,20 @@ class ConverterViewModelTest {
         }
     }
 
+    @Implements(android.content.ContentResolver::class)
+    class UnavailableOutputStreamResolver : ShadowContentResolver() {
+        var unavailableUri: Uri? = null
+
+        @Implementation
+        public override fun openOutputStream(uri: Uri, mode: String): java.io.OutputStream? = if (uri == unavailableUri) null else super.openOutputStream(uri, mode)
+    }
+
     private class SaveTestDocumentsProvider(
         private val directory: File,
         private val authority: String,
         private val resolver: ShadowContentResolver,
+        private val rejectedNames: Set<String> = emptySet(),
+        private val denyWrites: Boolean = false,
     ) : DocumentsProvider() {
         override fun onCreate() = true
 
@@ -474,11 +625,20 @@ class ConverterViewModelTest {
         }
 
         override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
+            if (displayName in rejectedNames) throw java.io.IOException("Document creation rejected")
             val file = File(directory, displayName)
             check(file.createNewFile()) { "File already exists: $displayName" }
             val treeUri = DocumentsContract.buildTreeDocumentUri(authority, "root")
             val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, displayName)
-            resolver.registerOutputStream(uri, file.outputStream())
+            resolver.registerOutputStreamSupplier(uri) {
+                if (denyWrites) {
+                    object : java.io.OutputStream() {
+                        override fun write(value: Int) = throw SecurityException("Write permission denied")
+                    }
+                } else {
+                    file.outputStream()
+                }
+            }
             return displayName
         }
 

@@ -235,9 +235,7 @@ class ConversionService : Service() {
                 output.delete()
                 errors += "$name: ${error.message}"
             } finally {
-                input.delete()
-                intermediate.delete()
-                normalized.delete()
+                inputDirectory.deleteRecursively()
             }
         }
         val status = when {

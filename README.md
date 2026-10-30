@@ -14,7 +14,7 @@ Android app for converting e-books individually or in batches with Calibre and b
 1. **Select eBooks**, then choose an **Output Format**. **Add eBooks** extends the queue.
 2. Optionally open **Conversion options** for Metadata, Typography, Margins, or
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
-3. Tap **Convert**, then choose a folder to save the results.
+3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.
@@ -90,7 +90,10 @@ using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
 
 ## Screenshots
 
-| Conversion | Options |
+| Conversion | Backend Settings |
 | --- | --- |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Expanded conversion options" width="250"> |
-| Select books and choose an output format. | Adjust conversion settings and book metadata. |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" alt="Conversion backend settings" width="250" height="556" /> |
+| **Options** | **Save and Share** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" alt="Expanded conversion options" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Completed conversion with Save and Share actions" width="250" height="556" /> |
+| **Dark Mode** | |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> | |

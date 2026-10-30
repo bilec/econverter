@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="status_text">%1$s</string>
     <string name="status_error">Błąd: %1$s</string>
     <string name="status_selected_skipped">Wybrane e-booki: %1$s (pominięte nieobsługiwane: %2$s)</string>
     <string name="status_unsupported_selection">Wybrano nieobsługiwane formaty</string>
@@ -9,7 +8,6 @@
     <string name="status_converting_progress">Konwertowanie... ukończono %1$s/%2$s</string>
     <string name="status_cancelled">Anulowano</string>
     <string name="status_save_cancelled">Anulowano zapis</string>
-    <string name="status_checking_dependencies">Sprawdzanie zależności...</string>
     <string name="status_saved_batch">E-booki zapisane w folderze: %1$s</string>
     <string name="status_saved_file">Zapisano: %1$s</string>
     <string name="status_save_failed">Błąd: nie można zapisać plików</string>
@@ -38,7 +36,8 @@
     <string name="history">Historia (%1$d)</string>
     <string name="loading_selection">Wczytywanie wyboru...</string>
     <string name="saving">Zapisywanie...</string>
-    <string name="choose_save_folder">Wybierz folder zapisu</string>
+    <string name="save">Zapisz</string>
+    <string name="share">Udostępnij</string>
     <string name="app_title">eBook Converter</string>
     <string name="settings">Ustawienia</string>
     <string name="about">O aplikacji</string>

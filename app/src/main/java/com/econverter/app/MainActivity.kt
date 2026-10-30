@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
 
@@ -69,13 +71,19 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         vm.purgeStaleTempFiles(context)
     }
 
+    LaunchedEffect(vm.status, vm.shouldAutoDismissStatus) {
+        if (vm.shouldAutoDismissStatus) {
+            delay(3_000)
+            vm.status = StatusMessage()
+        }
+    }
+
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             val existingUriSet = vm.inputUris.toSet()
             val newUris = uris.distinct().filter { it !in existingUriSet }
 
             if (newUris.isNotEmpty()) {
-                vm.status = StatusMessage(R.string.loading_selection)
                 vm.addSelectedUris(context, newUris)
             }
         }
@@ -84,14 +92,6 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val dirSavePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             vm.saveToUri(context, uri)
-        } else {
-            vm.discardPendingSave()
-        }
-    }
-
-    LaunchedEffect(vm.pendingSave) {
-        if (vm.pendingSave) {
-            dirSavePicker.launch(null)
         }
     }
 
@@ -134,23 +134,52 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                 LinearProgressIndicator(Modifier.fillMaxWidth())
                             }
                         }
-                        Button(
-                            onClick = { if (vm.isConverting) vm.cancelConversion() else vm.convert(context) },
-                            enabled = (vm.isConverting || vm.canConvert) && !vm.isCancelling && !vm.isSaving && !vm.pendingSave,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Icon(if (vm.isConverting) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                when {
-                                    vm.isCancelling -> stringResource(R.string.cancelling)
-                                    vm.isConverting -> stringResource(R.string.cancel)
-                                    vm.isSaving -> stringResource(R.string.saving)
-                                    vm.pendingSave -> stringResource(R.string.choose_save_folder)
-                                    else -> stringResource(R.string.convert)
-                                },
-                            )
+                        if (vm.pendingSave && !vm.isSaving) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Button(
+                                    onClick = { dirSavePicker.launch(null) },
+                                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.save))
+                                }
+                                OutlinedButton(
+                                    onClick = { vm.createShareIntent(context)?.let(context::startActivity) },
+                                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.share))
+                                }
+                                IconButton(onClick = vm::discardPendingSave) {
+                                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                                }
+                            }
+                        } else {
+                            Button(
+                                onClick = { if (vm.isConverting) vm.cancelConversion() else vm.convert(context) },
+                                enabled = (vm.isConverting || vm.canConvert) && !vm.isCancelling && !vm.isSaving && !vm.pendingSave,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                shape = RoundedCornerShape(8.dp),
+                            ) {
+                                Icon(if (vm.isConverting) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    when {
+                                        vm.isCancelling -> stringResource(R.string.cancelling)
+                                        vm.isConverting -> stringResource(R.string.cancel)
+                                        vm.isSaving -> stringResource(R.string.saving)
+                                        else -> stringResource(R.string.convert)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -308,7 +337,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                     .clickable(enabled = canEdit, onClickLabel = stringResource(R.string.select_books)) { vm.selectHistory(entry) }
                                     .padding(vertical = 12.dp),
                             ) {
-                                val entryName = if (entry.fileNames.size > 1) stringResource(R.string.books_selected, entry.fileNames.size) else entry.fileName
+                                val entryName = if (entry.fileNames.size > 1) stringResource(R.string.books_selected, entry.fileNames.size) else entry.fileNames.firstOrNull().orEmpty()
                                 Text("$entryName → ${entry.outputFormat} (${stringResource(entry.backend.labelRes)})", style = MaterialTheme.typography.bodyMedium)
                                 Text(
                                     "${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.timestamp))} — ${entry.status.text(context)}",
@@ -327,10 +356,9 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 fun getFileName(context: android.content.Context, uri: Uri): String {
     var name = ""
     try {
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            if (cursor.moveToFirst() && idx >= 0) {
-                name = cursor.getString(idx) ?: ""
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                name = cursor.getString(0) ?: ""
             }
         }
     } catch (_: Exception) {}

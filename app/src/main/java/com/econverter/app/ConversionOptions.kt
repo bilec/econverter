@@ -20,17 +20,15 @@ private const val PDF_CLEANUP_ARGS = "--enable-heuristics --unwrap-lines --delet
 @Composable
 internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
     var showOptions by remember { mutableStateOf(false) }
-    if (vm.backend != ConversionBackend.BOKO) {
-        TextButton(onClick = { showOptions = !showOptions }, enabled = enabled, contentPadding = PaddingValues(0.dp)) {
-            Icon(if (showOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.conversion_options))
-        }
+    if (vm.backend == ConversionBackend.BOKO) return
+    TextButton(onClick = { showOptions = !showOptions }, enabled = enabled, contentPadding = PaddingValues(0.dp)) {
+        Icon(if (showOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.conversion_options))
     }
-    if (showOptions && vm.backend != ConversionBackend.BOKO) {
+    if (showOptions) {
         FormatDropdown(stringResource(R.string.output_profile), vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
         if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
-            Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = {
                     if (!vm.extraArgs.contains(PDF_CLEANUP_ARGS)) {
@@ -41,10 +39,8 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
                 Text(stringResource(R.string.apply_pdf_cleanup))
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
         CheckboxRow(stringResource(R.string.smarten_punctuation), vm.smartenPunctuation) { vm.smartenPunctuation = it }
         if (vm.outputFormat == "epub") {
-            Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.epub_version_label))
                 listOf("2", "3").forEach { version ->

@@ -50,8 +50,9 @@
 
    Calibre starts Python through `InstalledPythonPlatform`. Native bootstrap and
    wheel files retain their Python-visible paths as symlinks to Android-installed
-   libraries; data resources still use Chaquopy's standard extraction. This is a
-   GrapheneOS storage-DCL prototype, pending restricted-device verification.
+   libraries; data resources still use Chaquopy's standard extraction. The debug
+   build has reporter-confirmed conversion success on GrapheneOS; see
+   [issue #30](https://github.com/bilec/econverter/issues/30).
 
    `StatusMessage` carries progress and results through Binder to the ViewModel and history.
 

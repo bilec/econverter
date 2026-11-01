@@ -16,8 +16,8 @@ Android app for converting e-books individually or in batches with Calibre and b
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
 3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
-**Edit metadata** updates one EPUB, AZW3, or MOBI without conversion. **Apply**,
-then **Save** or **Share** the edited copy; originals stay unchanged.
+Each EPUB, AZW3, or MOBI has **Edit metadata**, including in a multi-book queue.
+**Apply**, then **Save** or **Share** its edited copy; originals and the queue stay unchanged.
 
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.

@@ -26,17 +26,22 @@ import androidx.compose.ui.window.DialogWindowProvider
 private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
 
 @Composable
-internal fun MetadataDialog(original: BookMetadata, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
-    var draft by remember(original) { mutableStateOf(original) }
+internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: BookMetadata, onChange: (BookMetadata) -> Unit, error: String?, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_metadata)) },
+        title = {
+            Column {
+                Text(stringResource(R.string.edit_metadata))
+                Text(fileName, style = MaterialTheme.typography.bodyMedium)
+            }
+        },
         text = {
             CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
                 OutlinedTextField(
                     value = draft.title,
-                    onValueChange = { draft = draft.copy(title = it) },
+                    onValueChange = { onChange(draft.copy(title = it)) },
                     label = { Text(stringResource(R.string.title_field)) },
                     modifier = Modifier.fillMaxWidth(),
                     isError = draft.title != original.title && draft.title.isBlank(),
@@ -44,7 +49,7 @@ internal fun MetadataDialog(original: BookMetadata, onApply: (BookMetadata) -> U
                 )
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.authors), modifier = Modifier.weight(1f))
-                    IconButton(onClick = { draft = draft.copy(authors = draft.authors + "") }) {
+                    IconButton(onClick = { onChange(draft.copy(authors = draft.authors + "")) }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_author))
                     }
                 }
@@ -52,26 +57,26 @@ internal fun MetadataDialog(original: BookMetadata, onApply: (BookMetadata) -> U
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = author,
-                            onValueChange = { value -> draft = draft.copy(authors = draft.authors.mapIndexed { position, name -> if (position == index) value else name }) },
+                            onValueChange = { value -> onChange(draft.copy(authors = draft.authors.mapIndexed { position, name -> if (position == index) value else name })) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             isError = draft.authors != original.authors && author.isBlank(),
                         )
-                        IconButton(onClick = { draft = draft.copy(authors = draft.authors.filterIndexed { position, _ -> position != index }) }) {
+                        IconButton(onClick = { onChange(draft.copy(authors = draft.authors.filterIndexed { position, _ -> position != index })) }) {
                             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remove_author))
                         }
                     }
                 }
                 OutlinedTextField(
                     value = draft.publisher,
-                    onValueChange = { draft = draft.copy(publisher = it) },
+                    onValueChange = { onChange(draft.copy(publisher = it)) },
                     label = { Text(stringResource(R.string.publisher)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
                 OutlinedTextField(
                     value = draft.comments,
-                    onValueChange = { draft = draft.copy(comments = it) },
+                    onValueChange = { onChange(draft.copy(comments = it)) },
                     label = { Text(stringResource(R.string.comments)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,

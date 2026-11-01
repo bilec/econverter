@@ -60,6 +60,10 @@ class ConverterViewModelTest {
         assertFalse(vm.canEditMetadata)
         vm.inputFileNames = listOf("one.epub", "two.epub")
         assertFalse(vm.canEditMetadata)
+        vm.inputUris = listOf(Uri.parse("content://test/one"), Uri.parse("content://test/two"))
+        assertTrue(vm.canEditMetadata)
+        vm.inputFileNames = listOf("one.txt", "two.pdf")
+        assertFalse(vm.canEditMetadata)
     }
 
     @Test

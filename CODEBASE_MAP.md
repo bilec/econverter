@@ -48,7 +48,7 @@
 
    `StatusMessage` carries progress and results through Binder to the ViewModel and history.
 
-   Metadata edits use the same worker and Save/Share flow, bypass conversion backends, and preserve the input format. Only changed fields are sent; selection stays locked while reading or editing.
+   Per-book metadata edits preserve the queue and format, bypass conversion backends, and reuse Save/Share. The ViewModel retains the target and draft across activity recreation and failed writes; only changed fields are sent, with selection locked until success or dismissal.
 
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 

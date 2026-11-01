@@ -104,7 +104,9 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     if (showSettings) {
         BackendSettingsDialog(vm.backend, { vm.selectBackend(it, context) }, { showSettings = false })
     }
-    vm.bookMetadata?.let { MetadataDialog(it, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata) }
+    vm.bookMetadata?.takeIf { !vm.isConverting }?.let {
+        MetadataDialog(vm.metadataFileName, it, requireNotNull(vm.metadataDraft), vm::changeMetadataDraft, if (vm.status.isError) vm.status.text(context) else null, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata)
+    }
 
     Scaffold(
         topBar = {
@@ -265,13 +267,13 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                             Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             Text(name.substringAfterLast('.', "").uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        if (vm.inputFileNames.size == 1 && name.substringAfterLast('.', "").lowercase() in BookMetadata.formats) {
+                                        if (name.substringAfterLast('.', "").lowercase() in BookMetadata.formats) {
                                             TooltipBox(
                                                 positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                                 tooltip = { PlainTooltip { Text(stringResource(R.string.edit_metadata)) } },
                                                 state = rememberTooltipState(),
                                             ) {
-                                                IconButton(onClick = { vm.readMetadata(context) }, enabled = vm.canEditMetadata) {
+                                                IconButton(onClick = { vm.readMetadata(context, uri) }, enabled = vm.canEditMetadata) {
                                                     Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_metadata))
                                                 }
                                             }
@@ -304,7 +306,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
                 ConversionOptions(vm, enabled = canEdit)
 
-                if (vm.status.resourceId != 0) {
+                if (vm.status.resourceId != 0 && (vm.bookMetadata == null || vm.isConverting)) {
                     val isError = vm.status.isError
                     Surface(
                         color = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,

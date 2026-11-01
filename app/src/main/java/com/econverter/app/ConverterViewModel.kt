@@ -90,6 +90,9 @@ class ConverterViewModel : ViewModel() {
     var pendingSave by mutableStateOf(false)
     var bookMetadata by mutableStateOf<BookMetadata?>(null)
         private set
+    var metadataDraft by mutableStateOf<BookMetadata?>(null)
+        private set
+    private var metadataTarget: Pair<Uri, String>? = null
     val history = mutableStateListOf<HistoryEntry>()
     internal var outputFiles: List<File> = emptyList()
     internal var internalWorkDirectory: File? = null
@@ -100,9 +103,10 @@ class ConverterViewModel : ViewModel() {
     val isBatch: Boolean get() = inputFileNames.size > 1
     val hasSelection: Boolean get() = inputUris.isNotEmpty()
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
+    val metadataFileName: String get() = metadataTarget?.second.orEmpty()
     val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
     val canConvert: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
-    val canEditMetadata: Boolean get() = bookMetadata == null && inputUris.size == 1 && inputFileNames.size == 1 && inputFileName.substringAfterLast('.', "").lowercase() in BookMetadata.formats && !isConverting && !isSaving && !pendingSave
+    val canEditMetadata: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && inputFileNames.any { it.substringAfterLast('.', "").lowercase() in BookMetadata.formats } && !isConverting && !isSaving && !pendingSave
     val conversionProgress: Float?
         get() = when {
             isSaving -> null
@@ -206,27 +210,39 @@ class ConverterViewModel : ViewModel() {
         startOperation(context, ConversionService.RUN)
     }
 
-    fun readMetadata(context: Context) {
-        if (canEditMetadata) startOperation(context, ConversionService.READ_METADATA)
+    fun readMetadata(context: Context, uri: Uri) {
+        if (!canEditMetadata) return
+        val index = inputUris.indexOf(uri)
+        if (index < 0 || inputFileNames[index].substringAfterLast('.', "").lowercase() !in BookMetadata.formats) return
+        metadataTarget = uri to inputFileNames[index]
+        startOperation(context, ConversionService.READ_METADATA)
+    }
+
+    fun changeMetadataDraft(updated: BookMetadata) {
+        if (bookMetadata != null && !isConverting) metadataDraft = updated
     }
 
     fun dismissMetadata() {
-        if (!isConverting) bookMetadata = null
+        if (isConverting) return
+        bookMetadata = null
+        metadataDraft = null
+        metadataTarget = null
     }
 
     fun applyMetadata(context: Context, updated: BookMetadata) {
         val original = bookMetadata ?: return
         if (isConverting || isSaving || pendingSave || !updated.canApplyTo(original)) return
-        bookMetadata = null
+        metadataDraft = updated
         startOperation(context, ConversionService.UPDATE_METADATA, updated.changesFrom(original))
     }
 
     private fun startOperation(context: Context, operation: Int, metadataFields: Bundle = Bundle()) {
         cleanup()
         purgeStaleTempFiles(context, System.currentTimeMillis() - SHARED_RUN_RETENTION_MILLIS)
-        val uris = inputUris.toList()
-        val names = inputFileNames.toList()
-        val format = if (operation == ConversionService.RUN) outputFormat else inputFileName.substringAfterLast('.').lowercase()
+        val target = if (operation == ConversionService.RUN) null else requireNotNull(metadataTarget)
+        val uris = if (target == null) inputUris.toList() else listOf(target.first)
+        val names = if (target == null) inputFileNames.toList() else listOf(target.second)
+        val format = if (operation == ConversionService.RUN) outputFormat else names.single().substringAfterLast('.').lowercase()
         val selectedBackend = backend
         val args = if (operation != ConversionService.RUN || selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
         val directory = File(context.filesDir, "$CONVERSION_RUNS_DIRECTORY/${UUID.randomUUID()}")
@@ -248,7 +264,10 @@ class ConverterViewModel : ViewModel() {
                 status = result.status
                 outputFiles = result.files
                 pendingSave = result.files.isNotEmpty()
-                if (operation == ConversionService.READ_METADATA) bookMetadata = result.metadata
+                if (operation == ConversionService.READ_METADATA) {
+                    bookMetadata = result.metadata
+                    metadataDraft = result.metadata
+                }
                 if (operation == ConversionService.RUN) {
                     history.add(HistoryEntry(format, result.status, System.currentTimeMillis(), uris, names, selectedBackend))
                     if (history.size > MAX_HISTORY_ENTRIES) history.removeAt(0)
@@ -257,6 +276,8 @@ class ConverterViewModel : ViewModel() {
                 worker = null
                 isConverting = false
                 isCancelling = false
+                if (operation == ConversionService.UPDATE_METADATA && pendingSave) dismissMetadata()
+                if (operation == ConversionService.READ_METADATA && bookMetadata == null) metadataTarget = null
                 if (operation == ConversionService.READ_METADATA) internalWorkDirectory = null
             }
         }
@@ -297,7 +318,7 @@ class ConverterViewModel : ViewModel() {
         if (isSaving || isConverting || !pendingSave) return
         isSaving = true
         val files = outputFiles
-        val batch = isBatch || files.size > 1
+        val batch = files.size > 1
         viewModelScope.launch(Dispatchers.IO) {
             val result = try {
                 when {

@@ -8,7 +8,6 @@ import android.content.ServiceConnection
 import android.net.Uri
 import android.os.*
 import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import io.github.bilec.boko.Boko
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
@@ -256,7 +255,7 @@ class ConversionService : Service() {
     }
 
     private fun convertWithCalibre(input: File, output: File, args: List<String>, directory: File) {
-        if (!Python.isStarted()) Python.start(AndroidPlatform(this))
+        if (!Python.isStarted()) Python.start(InstalledPythonPlatform(this))
         val python = Python.getInstance()
         val scratch = File(directory, "tmp").apply { check(isDirectory || mkdirs()) { "Could not create scratch directory" } }
         python.getModule("tempfile").put("tempdir", scratch.absolutePath)

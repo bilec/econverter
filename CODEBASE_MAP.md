@@ -33,7 +33,7 @@
 | [app/src/main/assets/chaquopy_native_loader.py](app/src/main/assets/chaquopy_native_loader.py) | Chaquopy extraction hook linking native wheel entries while retaining normal resource extraction. |
 | [app/build.gradle.kts](app/build.gradle.kts) | Configures Chaquopy, the pinned Python engine, the external boko Android AAR, and generated native-library packaging/path maps. |
 | [settings.gradle.kts](settings.gradle.kts) | Optional `bokoBindingsDir` composite-build substitution for local library development. |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | Reusable check-to-emulator gate; check saves the Gradle cache for downstream jobs. |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | Reusable check-to-emulator gate, followed by reviewer-gated debug APK artifacts for non-tag runs. The `debug-apk` GitHub environment requires reviewer configuration; check saves the Gradle cache for downstream jobs. |
 | [.github/workflows/release.yml](.github/workflows/release.yml) | Builds and publishes tagged releases only after the CI gate passes. |
 | [.gitmodules](.gitmodules) | CPython host-build submodule; its Git commit pins the source used by the prepared F-Droid 1.3.0 recipes. |
 | [metadata/com.econverter.app.yml](metadata/com.econverter.app.yml) | Historical F-Droid builds; future recipes stay outside active metadata until release validation. |

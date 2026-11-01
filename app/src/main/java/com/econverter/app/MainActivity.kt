@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -64,7 +65,7 @@ class MainActivity : ComponentActivity() {
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
     val removeBookLabel = stringResource(R.string.remove_book)
-    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave
+    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave && vm.bookMetadata == null
 
     LaunchedEffect(Unit) {
         vm.loadBackendPreference(context)
@@ -103,6 +104,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     if (showSettings) {
         BackendSettingsDialog(vm.backend, { vm.selectBackend(it, context) }, { showSettings = false })
     }
+    vm.bookMetadata?.let { MetadataDialog(it, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata) }
 
     Scaffold(
         topBar = {
@@ -262,6 +264,17 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                         Column(Modifier.weight(1f)) {
                                             Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             Text(name.substringAfterLast('.', "").uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        if (vm.inputFileNames.size == 1 && name.endsWith(".epub", ignoreCase = true)) {
+                                            TooltipBox(
+                                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                                tooltip = { PlainTooltip { Text(stringResource(R.string.edit_metadata)) } },
+                                                state = rememberTooltipState(),
+                                            ) {
+                                                IconButton(onClick = { vm.readMetadata(context) }, enabled = vm.canEditMetadata) {
+                                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_metadata))
+                                                }
+                                            }
                                         }
                                     }
                                 }

@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="status_error">Chyba: %1$s</string>
+    <string name="status_reading_metadata">Načítanie metadát...</string>
+    <string name="status_updating_metadata">Aktualizácia metadát...</string>
+    <string name="status_metadata_done">Metadáta aktualizované - vyberte, kam uložiť</string>
+    <string name="edit_metadata">Upraviť metadáta</string>
+    <string name="apply_metadata">Použiť</string>
+    <string name="add_author">Pridať autora</string>
+    <string name="remove_author">Odobrať autora</string>
     <string name="status_selected_skipped">Vybraté e-knihy: %1$s (nepodporované preskočené: %2$s)</string>
     <string name="status_unsupported_selection">Vybraté nepodporované formáty</string>
     <string name="status_unsupported_conversion">Chyba: Nepodporovaný vstup alebo výstup pre %1$s</string>

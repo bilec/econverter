@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -65,6 +66,93 @@ class ConversionWorkerTest {
         composeRule.onNodeWithText("Select eBooks").assertIsDisplayed()
         composeRule.onNodeWithText("Output Format").assertIsDisplayed()
         composeRule.onNodeWithText("Convert").assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun metadataWorkerReadsAndUpdatesWithoutConvertingOrChangingOriginal() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "conversion-runs/metadata-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = makeEpub(File(directory, "book.epub"))
+            val original = source.readBytes()
+            val readWorker = ConversionWorker(
+                context,
+                File(directory, "read"),
+                listOf(Uri.fromFile(source)),
+                listOf(source.name),
+                "epub",
+                emptyList(),
+                backend = ConversionBackend.BOKO,
+                operation = ConversionService.READ_METADATA,
+            )
+            val read = withTimeout(90_000) { withContext(Dispatchers.Main) { readWorker.run() } }
+            assertFalse(read.status.text(context), read.status.isError)
+            assertEquals(BookMetadata("Test Book", listOf("Test Author"), "", ""), read.metadata)
+            val updated = requireNotNull(read.metadata).copy(title = "Edited title", authors = listOf("Research & Development"), publisher = "Publisher")
+            val updateWorker = ConversionWorker(
+                context, File(directory, "update"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList(),
+                backend = ConversionBackend.BOKO, operation = ConversionService.UPDATE_METADATA,
+                metadataFields = updated.changesFrom(requireNotNull(read.metadata)),
+            )
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { updateWorker.run() } }
+            assertTrue(result.status.text(context), result.status.isSuccess)
+            assertArrayEquals(original, source.readBytes())
+            val output = result.files.single()
+            ZipFile(source).use { before ->
+                ZipFile(output).use { after ->
+                    assertArrayEquals(before.getInputStream(before.getEntry("chapter.xhtml")).readBytes(), after.getInputStream(after.getEntry("chapter.xhtml")).readBytes())
+                }
+            }
+            val rereadWorker = ConversionWorker(
+                context,
+                File(directory, "reread"),
+                listOf(Uri.fromFile(output)),
+                listOf(output.name),
+                "epub",
+                emptyList(),
+                operation = ConversionService.READ_METADATA,
+            )
+            val reread = withTimeout(90_000) { withContext(Dispatchers.Main) { rereadWorker.run() } }
+            assertEquals(updated, reread.metadata)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun metadataEditorIsPrefilledAndAppliesChangesThroughSaveShareFlow() {
+        val directory = File(context.filesDir, "conversion-runs/editor-${UUID.randomUUID()}").apply { mkdirs() }
+        val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
+        try {
+            val source = makeEpub(File(directory, "book.epub"))
+            val original = source.readBytes()
+            composeRule.runOnIdle {
+                vm.inputUris = listOf(Uri.fromFile(source))
+                vm.inputFileNames = listOf(source.name)
+            }
+            composeRule.onNodeWithContentDescription("Edit metadata").performScrollTo().performClick()
+            composeRule.waitUntil(90_000) { vm.bookMetadata != null }
+            composeRule.onNodeWithText("Apply").assertIsNotEnabled()
+            composeRule.onNodeWithText("Test Book").assertIsDisplayed().performTextReplacement("Edited metadata")
+            composeRule.onNodeWithText("Test Author").assertIsDisplayed()
+            composeRule.onNodeWithText("Apply").assertIsEnabled().performClick()
+            composeRule.waitUntil(90_000) { vm.pendingSave && !vm.isConverting }
+            composeRule.onNodeWithText("Save").assertIsDisplayed()
+            composeRule.onNodeWithText("Share").assertIsDisplayed()
+            assertArrayEquals(original, source.readBytes())
+            ZipFile(vm.outputFiles.single()).use { archive ->
+                val opf = archive.getInputStream(archive.getEntry("content.opf")).use { it.readBytes().toString(Charsets.UTF_8) }
+                assertTrue(opf.contains("Edited metadata"))
+                assertTrue(opf.contains("Test Author"))
+            }
+        } finally {
+            composeRule.runOnIdle {
+                vm.discardPendingSave()
+                vm.dismissMetadata()
+            }
+            directory.deleteRecursively()
+        }
     }
 
     @Test

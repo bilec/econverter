@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="status_error">Błąd: %1$s</string>
+    <string name="status_reading_metadata">Odczytywanie metadanych...</string>
+    <string name="status_updating_metadata">Aktualizowanie metadanych...</string>
+    <string name="status_metadata_done">Metadane zaktualizowane - wybierz miejsce zapisu</string>
+    <string name="edit_metadata">Edytuj metadane</string>
+    <string name="apply_metadata">Zastosuj</string>
+    <string name="add_author">Dodaj autora</string>
+    <string name="remove_author">Usuń autora</string>
     <string name="status_selected_skipped">Wybrane e-booki: %1$s (pominięte nieobsługiwane: %2$s)</string>
     <string name="status_unsupported_selection">Wybrano nieobsługiwane formaty</string>
     <string name="status_unsupported_conversion">Błąd: Nieobsługiwane wejście lub wyjście dla %1$s</string>

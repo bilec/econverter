@@ -88,6 +88,8 @@ class ConverterViewModel : ViewModel() {
     var isCancelling by mutableStateOf(false)
     var isSaving by mutableStateOf(false)
     var pendingSave by mutableStateOf(false)
+    var bookMetadata by mutableStateOf<BookMetadata?>(null)
+        private set
     val history = mutableStateListOf<HistoryEntry>()
     internal var outputFiles: List<File> = emptyList()
     internal var internalWorkDirectory: File? = null
@@ -99,7 +101,8 @@ class ConverterViewModel : ViewModel() {
     val hasSelection: Boolean get() = inputUris.isNotEmpty()
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
     val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
-    val canConvert: Boolean get() = hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
+    val canConvert: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
+    val canEditMetadata: Boolean get() = bookMetadata == null && inputUris.size == 1 && inputFileNames.size == 1 && inputFileName.endsWith(".epub", ignoreCase = true) && !isConverting && !isSaving && !pendingSave
     val conversionProgress: Float?
         get() = when {
             isSaving -> null
@@ -111,7 +114,7 @@ class ConverterViewModel : ViewModel() {
         get() = status.resourceId != 0 && status.resourceId != R.string.loading_selection && !status.isError && !isConverting && !isSaving && !pendingSave
 
     fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
-        if (isConverting || isSaving || pendingSave) return
+        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         backend = value
         if (outputFormat !in outputFormats) outputFormat = "epub"
         status = StatusMessage()
@@ -126,14 +129,14 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun clearSelection() {
-        if (isConverting || isSaving || pendingSave) return
+        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         inputUris = emptyList()
         inputFileNames = emptyList()
         status = StatusMessage()
     }
 
     fun removeSelectedUri(uri: Uri) {
-        if (isConverting || isSaving || pendingSave) return
+        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         val index = inputUris.indexOf(uri)
         if (index == -1) return
         inputUris = inputUris.filterIndexed { i, _ -> i != index }
@@ -142,7 +145,7 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun selectHistory(entry: HistoryEntry) {
-        if (isConverting || isSaving || pendingSave || entry.uris.isEmpty()) return
+        if (isConverting || isSaving || pendingSave || bookMetadata != null || entry.uris.isEmpty()) return
         inputUris = entry.uris.toList()
         inputFileNames = entry.fileNames.toList()
         outputFormat = entry.outputFormat
@@ -160,13 +163,13 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun addSelectedUris(context: android.content.Context, newUris: List<Uri>) {
-        if (isConverting || isSaving || pendingSave) return
+        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         status = StatusMessage(R.string.loading_selection)
         viewModelScope.launch(Dispatchers.IO) {
             val pairs = newUris.map { uri -> uri to getFileName(context, uri) }
 
             withContext(Dispatchers.Main) {
-                if (isConverting || isSaving || pendingSave) return@withContext
+                if (isConverting || isSaving || pendingSave || bookMetadata != null) return@withContext
                 val validPairs = pairs.filter { isInputSupported(it.second) }
                 val unsupportedCount = newUris.size - validPairs.size
                 if (validPairs.isNotEmpty()) {
@@ -195,24 +198,49 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun convert(context: android.content.Context) {
-        if (!hasSelection || isConverting || isSaving || pendingSave) return
+        if (!hasSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
         if (!canConvert) {
             status = StatusMessage(R.string.status_unsupported_conversion, listOf(backend.label), isError = true)
             return
         }
+        startOperation(context, ConversionService.RUN)
+    }
+
+    fun readMetadata(context: Context) {
+        if (canEditMetadata) startOperation(context, ConversionService.READ_METADATA)
+    }
+
+    fun dismissMetadata() {
+        if (!isConverting) bookMetadata = null
+    }
+
+    fun applyMetadata(context: Context, updated: BookMetadata) {
+        val original = bookMetadata ?: return
+        if (isConverting || isSaving || pendingSave || !updated.canApplyTo(original)) return
+        bookMetadata = null
+        startOperation(context, ConversionService.UPDATE_METADATA, updated.changesFrom(original))
+    }
+
+    private fun startOperation(context: Context, operation: Int, metadataFields: Bundle = Bundle()) {
         cleanup()
         purgeStaleTempFiles(context, System.currentTimeMillis() - SHARED_RUN_RETENTION_MILLIS)
         val uris = inputUris.toList()
         val names = inputFileNames.toList()
-        val format = outputFormat
+        val format = if (operation == ConversionService.RUN) outputFormat else "epub"
         val selectedBackend = backend
-        val args = if (selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
+        val args = if (operation != ConversionService.RUN || selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
         val directory = File(context.filesDir, "$CONVERSION_RUNS_DIRECTORY/${UUID.randomUUID()}")
         internalWorkDirectory = directory
         isConverting = true
         isCancelling = false
-        status = StatusMessage(R.string.status_converting)
-        val currentWorker = ConversionWorker(context, directory, uris, names, format, args, selectedBackend) { status = it }
+        status = StatusMessage(
+            when (operation) {
+                ConversionService.READ_METADATA -> R.string.status_reading_metadata
+                ConversionService.UPDATE_METADATA -> R.string.status_updating_metadata
+                else -> R.string.status_converting
+            },
+        )
+        val currentWorker = ConversionWorker(context, directory, uris, names, format, args, selectedBackend, operation, metadataFields) { status = it }
         worker = currentWorker
         viewModelScope.launch {
             try {
@@ -220,12 +248,16 @@ class ConverterViewModel : ViewModel() {
                 status = result.status
                 outputFiles = result.files
                 pendingSave = result.files.isNotEmpty()
-                history.add(HistoryEntry(format, result.status, System.currentTimeMillis(), uris, names, selectedBackend))
-                if (history.size > MAX_HISTORY_ENTRIES) history.removeAt(0)
+                if (operation == ConversionService.READ_METADATA) bookMetadata = result.metadata
+                if (operation == ConversionService.RUN) {
+                    history.add(HistoryEntry(format, result.status, System.currentTimeMillis(), uris, names, selectedBackend))
+                    if (history.size > MAX_HISTORY_ENTRIES) history.removeAt(0)
+                }
             } finally {
                 worker = null
                 isConverting = false
                 isCancelling = false
+                if (operation == ConversionService.READ_METADATA) internalWorkDirectory = null
             }
         }
     }

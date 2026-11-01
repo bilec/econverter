@@ -36,6 +36,43 @@ import java.util.UUID
 @Config(sdk = [28])
 class ConverterViewModelTest {
     @Test
+    fun metadataEditingRequiresOneEpubAndAnIdleApp() {
+        val vm = ConverterViewModel()
+        assertFalse(vm.canEditMetadata)
+        vm.inputUris = listOf(Uri.parse("content://test/book"))
+        vm.inputFileNames = listOf("book.EPUB")
+        vm.selectBackend(ConversionBackend.BOKO)
+        vm.outputFormat = "kfx"
+        assertTrue(vm.canEditMetadata)
+        vm.isConverting = true
+        assertFalse(vm.canEditMetadata)
+        vm.isConverting = false
+        vm.pendingSave = true
+        assertFalse(vm.canEditMetadata)
+        vm.pendingSave = false
+        vm.inputFileNames = listOf("book.pdf")
+        assertFalse(vm.canEditMetadata)
+        vm.inputFileNames = listOf("one.epub", "two.epub")
+        assertFalse(vm.canEditMetadata)
+    }
+
+    @Test
+    fun metadataTransportAndChangesPreserveLiteralAuthorsAndExplicitClearing() {
+        val original = BookMetadata("Title", listOf("Research & Development", "Other Author"), "Publisher", "Description")
+        assertEquals(original, BookMetadata.fromBundle(original.toBundle()))
+        assertTrue(original.changesFrom(original).isEmpty)
+        val changed = original.copy(publisher = "")
+        val fields = changed.changesFrom(original)
+        assertEquals(setOf("publisher"), fields.keySet())
+        assertEquals("", fields.getString("publisher"))
+        val authors = original.copy(authors = listOf("Research & Development"))
+        assertEquals(listOf("Research & Development"), authors.changesFrom(original).getStringArrayList("authors"))
+        assertFalse(original.copy(title = " ").canApplyTo(original))
+        assertFalse(original.copy(authors = listOf("")).canApplyTo(original))
+        assertTrue(original.copy(authors = emptyList()).copy(title = "Updated").canApplyTo(original.copy(authors = emptyList())))
+    }
+
+    @Test
     fun startupCleanupRemovesOldRunsButPreservesNewRunsAndOriginals() = runBlocking<Unit> {
         val context = RuntimeEnvironment.getApplication()
         val runs = File(context.filesDir, "conversion-runs").apply { mkdirs() }

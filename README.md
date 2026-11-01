@@ -16,6 +16,10 @@ Android app for converting e-books individually or in batches with Calibre and b
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
 3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
+For a single EPUB, use its **Edit metadata** action to update the prefilled title,
+authors, publisher, or comments without conversion. **Apply** changes, then
+**Save** or **Share** the edited copy; the original stays untouched.
+
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.
 

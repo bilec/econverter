@@ -25,7 +25,7 @@
 | [app/src/main/java/com/econverter/app/MainActivity.kt](app/src/main/java/com/econverter/app/MainActivity.kt) | Entry Activity, converter screen, and SAF file pickers. |
 | [app/src/main/java/com/econverter/app/ConverterTheme.kt](app/src/main/java/com/econverter/app/ConverterTheme.kt) | System-selected light/dark palettes and Compose theme. |
 | [app/src/main/java/com/econverter/app/ConversionOptions.kt](app/src/main/java/com/econverter/app/ConversionOptions.kt) | Conversion options, grouped fields, dropdowns, and PDF cleanup preset. |
-| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Settings/About dialogs and GitHub issue reporting. |
+| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Metadata editor, Settings/About dialogs, and GitHub issue reporting. |
 | [app/src/main/java/com/econverter/app/ConverterViewModel.kt](app/src/main/java/com/econverter/app/ConverterViewModel.kt) | State container, file input/output handling, coroutine execution for conversion. |
 | [app/src/main/java/com/econverter/app/ConversionBackend.kt](app/src/main/java/com/econverter/app/ConversionBackend.kt) | Backend descriptions and accepted input/output capabilities. |
 | [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Bound conversion process and cancellable Binder client. |
@@ -47,6 +47,8 @@
    Settings selects Auto, Calibre, or boko and filters format choices. Direct boko skips Python. Auto normalizes KFX inputs with boko, applies conversion options through Calibre, and uses boko for KFX/Markdown output via intermediate EPUBs.
 
    `StatusMessage` carries progress and results through Binder to the ViewModel and history.
+
+   A single EPUB can be edited through a prefilled metadata dialog. The same worker calls `read_metadata()` or `update_metadata()` independently of the conversion backend; only changed fields are sent, and edited copies use the existing Save/Share flow. Reading and editing lock selection; cancellation removes temporary work without changing the source.
 
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 

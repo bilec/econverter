@@ -5,9 +5,9 @@ import java.security.MessageDigest
 import java.util.zip.ZipFile
 import org.gradle.api.file.DirectoryProperty
 
+val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt).get()
 val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
-val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val ebookConverterLibVersion = providers.gradleProperty("EBOOK_CONVERTER_LIB_VERSION").get()
 val pypdfium2Version = providers.gradleProperty("PYPDFIUM2_VERSION").get()
 val bokoAndroidVersion = providers.gradleProperty("BOKO_ANDROID_VERSION").get()
@@ -40,7 +40,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
+            abiFilters += abiVersionCodes.keys
         }
     }
 
@@ -48,7 +48,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "x86_64", "armeabi-v7a")
+            include(*abiVersionCodes.keys.toTypedArray())
             isUniversalApk = true
         }
     }
@@ -115,9 +115,11 @@ androidComponents {
             doLast {
                 val librariesDirectory = nativeLibraries.get().asFile
                 val assetsDirectory = nativeAssets.get().asFile
+                val pythonAssetDirectories = pythonAssets.map { it.get().asFile }
+                val nativeLibraryPattern = Regex("\\.so($|\\.)")
                 librariesDirectory.deleteRecursively()
                 assetsDirectory.deleteRecursively()
-                for (abi in listOf("arm64-v8a", "x86_64", "armeabi-v7a")) {
+                for (abi in abiVersionCodes.keys) {
                     val mapping = sortedMapOf<String, String>()
                     fun bundleLibrary(relativePath: String, source: InputStream) {
                         require(!relativePath.startsWith('/') && relativePath.split('/').none { it == ".." })
@@ -128,10 +130,10 @@ androidComponents {
                         check(destination.parentFile.isDirectory || destination.parentFile.mkdirs())
                         destination.outputStream().use { source.copyTo(it) }
                     }
-                    for (assetDirectory in pythonAssets.map { it.get().asFile }) {
+                    for (assetDirectory in pythonAssetDirectories) {
                         val bootstrap = assetDirectory.resolve("bootstrap-native/$abi")
                         if (bootstrap.isDirectory) {
-                            bootstrap.walkTopDown().filter { it.isFile && Regex("\\.so($|\\.)").containsMatchIn(it.name) }.forEach { library ->
+                            bootstrap.walkTopDown().filter { it.isFile && nativeLibraryPattern.containsMatchIn(it.name) }.forEach { library ->
                                 library.inputStream().use { bundleLibrary("bootstrap-native/$abi/${library.relativeTo(bootstrap).invariantSeparatorsPath}", it) }
                             }
                         }
@@ -144,7 +146,7 @@ androidComponents {
                                 else -> "app"
                             }
                             ZipFile(archive).use { zip ->
-                                zip.entries().asSequence().filter { !it.isDirectory && Regex("\\.so($|\\.)").containsMatchIn(it.name) }.forEach { entry ->
+                                zip.entries().asSequence().filter { !it.isDirectory && nativeLibraryPattern.containsMatchIn(it.name) }.forEach { entry ->
                                     zip.getInputStream(entry).use { bundleLibrary("AssetFinder/$packageDirectory/${entry.name}", it) }
                                 }
                             }

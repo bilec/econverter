@@ -36,20 +36,26 @@ import java.util.UUID
 @Config(sdk = [28])
 class ConverterViewModelTest {
     @Test
-    fun metadataEditingRequiresOneEpubAndAnIdleApp() {
+    fun metadataEditingRequiresOneSupportedBookAndAnIdleApp() {
         val vm = ConverterViewModel()
         assertFalse(vm.canEditMetadata)
         vm.inputUris = listOf(Uri.parse("content://test/book"))
         vm.inputFileNames = listOf("book.EPUB")
         vm.selectBackend(ConversionBackend.BOKO)
         vm.outputFormat = "kfx"
-        assertTrue(vm.canEditMetadata)
+        for (name in listOf("book.EPUB", "book.AZW3", "book.MOBI")) {
+            vm.inputFileNames = listOf(name)
+            assertTrue(name, vm.canEditMetadata)
+        }
         vm.isConverting = true
         assertFalse(vm.canEditMetadata)
         vm.isConverting = false
         vm.pendingSave = true
         assertFalse(vm.canEditMetadata)
         vm.pendingSave = false
+        vm.isSaving = true
+        assertFalse(vm.canEditMetadata)
+        vm.isSaving = false
         vm.inputFileNames = listOf("book.pdf")
         assertFalse(vm.canEditMetadata)
         vm.inputFileNames = listOf("one.epub", "two.epub")

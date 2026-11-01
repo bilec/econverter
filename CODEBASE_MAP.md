@@ -48,7 +48,7 @@
 
    `StatusMessage` carries progress and results through Binder to the ViewModel and history.
 
-   A single EPUB can be edited through a prefilled metadata dialog. The same worker calls `read_metadata()` or `update_metadata()` independently of the conversion backend; only changed fields are sent, and edited copies use the existing Save/Share flow. Reading and editing lock selection; cancellation removes temporary work without changing the source.
+   Metadata edits use the same worker and Save/Share flow, bypass conversion backends, and preserve the input format. Only changed fields are sent; selection stays locked while reading or editing.
 
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 

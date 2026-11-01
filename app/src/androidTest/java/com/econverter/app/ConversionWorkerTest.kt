@@ -34,6 +34,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.nio.ByteBuffer
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -73,47 +74,58 @@ class ConversionWorkerTest {
     fun metadataWorkerReadsAndUpdatesWithoutConvertingOrChangingOriginal() = runBlocking<Unit> {
         val directory = File(context.filesDir, "conversion-runs/metadata-${UUID.randomUUID()}").apply { mkdirs() }
         try {
-            val source = makeEpub(File(directory, "book.epub"))
-            val original = source.readBytes()
-            val readWorker = ConversionWorker(
-                context,
-                File(directory, "read"),
-                listOf(Uri.fromFile(source)),
-                listOf(source.name),
-                "epub",
-                emptyList(),
-                backend = ConversionBackend.BOKO,
-                operation = ConversionService.READ_METADATA,
-            )
-            val read = withTimeout(90_000) { withContext(Dispatchers.Main) { readWorker.run() } }
-            assertFalse(read.status.text(context), read.status.isError)
-            assertEquals(BookMetadata("Test Book", listOf("Test Author"), "", ""), read.metadata)
-            val updated = requireNotNull(read.metadata).copy(title = "Edited title", authors = listOf("Research & Development"), publisher = "Publisher")
-            val updateWorker = ConversionWorker(
-                context, File(directory, "update"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList(),
-                backend = ConversionBackend.BOKO, operation = ConversionService.UPDATE_METADATA,
-                metadataFields = updated.changesFrom(requireNotNull(read.metadata)),
-            )
-            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { updateWorker.run() } }
-            assertTrue(result.status.text(context), result.status.isSuccess)
-            assertArrayEquals(original, source.readBytes())
-            val output = result.files.single()
-            ZipFile(source).use { before ->
-                ZipFile(output).use { after ->
-                    assertArrayEquals(before.getInputStream(before.getEntry("chapter.xhtml")).readBytes(), after.getInputStream(after.getEntry("chapter.xhtml")).readBytes())
+            for (format in listOf("epub", "azw3", "mobi")) {
+                val bookDirectory = File(directory, format).apply { mkdirs() }
+                val source = makeMetadataBook(bookDirectory, format)
+                val original = source.readBytes()
+                val readWorker = ConversionWorker(
+                    context,
+                    File(bookDirectory, "read"),
+                    listOf(Uri.fromFile(source)),
+                    listOf(source.name),
+                    format,
+                    emptyList(),
+                    backend = ConversionBackend.BOKO,
+                    operation = ConversionService.READ_METADATA,
+                )
+                val read = withTimeout(90_000) { withContext(Dispatchers.Main) { readWorker.run() } }
+                assertFalse(read.status.text(context), read.status.isError)
+                assertEquals(BookMetadata("Test Book", listOf("Test Author"), "", ""), read.metadata)
+                val updated = requireNotNull(read.metadata).copy(title = "Edited title", authors = listOf("Research & Development"), publisher = "Publisher")
+                val updateWorker = ConversionWorker(
+                    context, File(bookDirectory, "update"), listOf(Uri.fromFile(source)), listOf(source.name), format, emptyList(),
+                    backend = ConversionBackend.BOKO, operation = ConversionService.UPDATE_METADATA,
+                    metadataFields = updated.changesFrom(requireNotNull(read.metadata)),
+                )
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { updateWorker.run() } }
+                assertTrue(result.status.text(context), result.status.isSuccess)
+                assertArrayEquals(original, source.readBytes())
+                val output = result.files.single()
+                assertEquals(format, output.extension)
+                if (format == "epub") {
+                    ZipFile(source).use { before ->
+                        ZipFile(output).use { after ->
+                            assertArrayEquals(before.getInputStream(before.getEntry("chapter.xhtml")).readBytes(), after.getInputStream(after.getEntry("chapter.xhtml")).readBytes())
+                        }
+                    }
+                } else {
+                    val before = mobiContentRecords(source)
+                    val after = mobiContentRecords(output)
+                    assertEquals(before.size, after.size)
+                    before.zip(after).forEach { (originalRecord, updatedRecord) -> assertArrayEquals(originalRecord, updatedRecord) }
                 }
+                val rereadWorker = ConversionWorker(
+                    context,
+                    File(bookDirectory, "reread"),
+                    listOf(Uri.fromFile(output)),
+                    listOf(output.name),
+                    format,
+                    emptyList(),
+                    operation = ConversionService.READ_METADATA,
+                )
+                val reread = withTimeout(90_000) { withContext(Dispatchers.Main) { rereadWorker.run() } }
+                assertEquals(updated, reread.metadata)
             }
-            val rereadWorker = ConversionWorker(
-                context,
-                File(directory, "reread"),
-                listOf(Uri.fromFile(output)),
-                listOf(output.name),
-                "epub",
-                emptyList(),
-                operation = ConversionService.READ_METADATA,
-            )
-            val reread = withTimeout(90_000) { withContext(Dispatchers.Main) { rereadWorker.run() } }
-            assertEquals(updated, reread.metadata)
         } finally {
             directory.deleteRecursively()
         }
@@ -121,30 +133,44 @@ class ConversionWorkerTest {
 
     @Test
     @ConversionSmokeTest
-    fun metadataEditorIsPrefilledAndAppliesChangesThroughSaveShareFlow() {
+    fun metadataEditorIsPrefilledAndAppliesChangesThroughSaveShareFlow() = runBlocking<Unit> {
         val directory = File(context.filesDir, "conversion-runs/editor-${UUID.randomUUID()}").apply { mkdirs() }
         val vm = ViewModelProvider(composeRule.activity)[ConverterViewModel::class.java]
         try {
-            val source = makeEpub(File(directory, "book.epub"))
-            val original = source.readBytes()
-            composeRule.runOnIdle {
-                vm.inputUris = listOf(Uri.fromFile(source))
-                vm.inputFileNames = listOf(source.name)
-            }
-            composeRule.onNodeWithContentDescription("Edit metadata").performScrollTo().performClick()
-            composeRule.waitUntil(90_000) { vm.bookMetadata != null }
-            composeRule.onNodeWithText("Apply").assertIsNotEnabled()
-            composeRule.onNodeWithText("Test Book").assertIsDisplayed().performTextReplacement("Edited metadata")
-            composeRule.onNodeWithText("Test Author").assertIsDisplayed()
-            composeRule.onNodeWithText("Apply").assertIsEnabled().performClick()
-            composeRule.waitUntil(90_000) { vm.pendingSave && !vm.isConverting }
-            composeRule.onNodeWithText("Save").assertIsDisplayed()
-            composeRule.onNodeWithText("Share").assertIsDisplayed()
-            assertArrayEquals(original, source.readBytes())
-            ZipFile(vm.outputFiles.single()).use { archive ->
-                val opf = archive.getInputStream(archive.getEntry("content.opf")).use { it.readBytes().toString(Charsets.UTF_8) }
-                assertTrue(opf.contains("Edited metadata"))
-                assertTrue(opf.contains("Test Author"))
+            for (format in listOf("epub", "azw3", "mobi")) {
+                val bookDirectory = File(directory, format).apply { mkdirs() }
+                val source = makeMetadataBook(bookDirectory, format)
+                val original = source.readBytes()
+                composeRule.runOnIdle {
+                    vm.selectBackend(ConversionBackend.BOKO)
+                    vm.outputFormat = "kfx"
+                    vm.inputUris = listOf(Uri.fromFile(source))
+                    vm.inputFileNames = listOf(source.name)
+                }
+                composeRule.onNodeWithContentDescription("Edit metadata").performScrollTo().performClick()
+                composeRule.waitUntil(90_000) { vm.bookMetadata != null }
+                composeRule.onNodeWithText("Apply").assertIsNotEnabled()
+                composeRule.onNodeWithText("Test Book").assertIsDisplayed().performTextReplacement("Edited metadata")
+                composeRule.onNodeWithText("Test Author").assertIsDisplayed()
+                composeRule.onNodeWithText("Apply").assertIsEnabled().performClick()
+                composeRule.waitUntil(90_000) { vm.pendingSave && !vm.isConverting }
+                composeRule.onNodeWithText("Save").assertIsDisplayed()
+                composeRule.onNodeWithText("Share").assertIsDisplayed()
+                assertArrayEquals(original, source.readBytes())
+                val output = vm.outputFiles.single()
+                assertEquals(format, output.extension)
+                val worker = ConversionWorker(
+                    context,
+                    File(bookDirectory, "verify"),
+                    listOf(Uri.fromFile(output)),
+                    listOf(output.name),
+                    format,
+                    emptyList(),
+                    operation = ConversionService.READ_METADATA,
+                )
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+                assertEquals(BookMetadata("Edited metadata", listOf("Test Author"), "", ""), result.metadata)
+                composeRule.runOnIdle { vm.discardPendingSave() }
             }
         } finally {
             composeRule.runOnIdle {
@@ -734,6 +760,31 @@ class ConversionWorkerTest {
         }
         canvas.callAttr("save")
         return file
+    }
+
+    private suspend fun makeMetadataBook(directory: File, format: String): File {
+        val epub = makeEpub(File(directory, "book.epub"))
+        if (format == "epub") return epub
+        val worker = ConversionWorker(
+            context,
+            File(directory, "fixture"),
+            listOf(Uri.fromFile(epub)),
+            listOf(epub.name),
+            format,
+            emptyList(),
+            backend = ConversionBackend.CALIBRE,
+        )
+        val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+        assertTrue(result.status.text(context), result.status.isSuccess)
+        return result.files.single()
+    }
+
+    private fun mobiContentRecords(file: File): List<ByteArray> {
+        val bytes = file.readBytes()
+        val header = ByteBuffer.wrap(bytes)
+        val count = header.getShort(76).toInt() and 0xffff
+        val offsets = (0 until count).map { header.getInt(78 + it * 8) } + bytes.size
+        return (1 until count).map { bytes.copyOfRange(offsets[it], offsets[it + 1]) }
     }
 
     private fun makeEpub(file: File, paragraphs: Int = 1): File {

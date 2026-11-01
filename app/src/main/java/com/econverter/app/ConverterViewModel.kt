@@ -102,7 +102,7 @@ class ConverterViewModel : ViewModel() {
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
     val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
     val canConvert: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
-    val canEditMetadata: Boolean get() = bookMetadata == null && inputUris.size == 1 && inputFileNames.size == 1 && inputFileName.endsWith(".epub", ignoreCase = true) && !isConverting && !isSaving && !pendingSave
+    val canEditMetadata: Boolean get() = bookMetadata == null && inputUris.size == 1 && inputFileNames.size == 1 && inputFileName.substringAfterLast('.', "").lowercase() in BookMetadata.formats && !isConverting && !isSaving && !pendingSave
     val conversionProgress: Float?
         get() = when {
             isSaving -> null
@@ -226,7 +226,7 @@ class ConverterViewModel : ViewModel() {
         purgeStaleTempFiles(context, System.currentTimeMillis() - SHARED_RUN_RETENTION_MILLIS)
         val uris = inputUris.toList()
         val names = inputFileNames.toList()
-        val format = if (operation == ConversionService.RUN) outputFormat else "epub"
+        val format = if (operation == ConversionService.RUN) outputFormat else inputFileName.substringAfterLast('.').lowercase()
         val selectedBackend = backend
         val args = if (operation != ConversionService.RUN || selectedBackend == ConversionBackend.BOKO) emptyList() else buildExtraArgs()
         val directory = File(context.filesDir, "$CONVERSION_RUNS_DIRECTORY/${UUID.randomUUID()}")

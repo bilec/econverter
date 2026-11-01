@@ -38,6 +38,8 @@ data class BookMetadata(val title: String, val authors: List<String>, val publis
         (authors == original.authors || (authors.isNotEmpty() && authors.all(String::isNotBlank)))
 
     companion object {
+        val formats = setOf("epub", "azw3", "mobi")
+
         fun fromBundle(bundle: Bundle): BookMetadata = BookMetadata(
             bundle.getString("title").orEmpty(),
             bundle.getStringArrayList("authors").orEmpty(),
@@ -227,10 +229,11 @@ class ConversionService : Service() {
         val directory = File(requireNotNull(data.getString("directory")))
         val name = File(requireNotNull(data.getStringArrayList("names")).single()).name
         val uri = Uri.parse(requireNotNull(data.getStringArrayList("uris")).single())
-        require(name.endsWith(".epub", ignoreCase = true) && data.getString("format") == "epub") { "Metadata editing supports one EPUB only" }
+        val format = name.substringAfterLast('.', "").lowercase()
+        require(format in BookMetadata.formats && data.getString("format") == format) { "Metadata editing requires one EPUB, AZW3 or MOBI with matching output format" }
         require(data.getStringArrayList("args").isNullOrEmpty()) { "Conversion options do not apply to metadata editing" }
         val inputDirectory = File(directory, "source").apply { check(mkdirs()) { "Could not create input directory" } }
-        val input = File(inputDirectory, "book.epub")
+        val input = File(inputDirectory, "book.$format")
         try {
             val stream = contentResolver.openInputStream(uri) ?: error("Could not read $name")
             stream.use { source -> input.outputStream().use { source.copyTo(it) } }
@@ -260,7 +263,7 @@ class ConversionService : Service() {
                 }
                 Kwarg(field, value)
             }
-            val output = File(directory, "${name.substringBeforeLast('.').ifBlank { "book" }}.epub")
+            val output = File(directory, "${name.substringBeforeLast('.').ifBlank { "book" }}.$format")
             val result = module.callAttr("update_metadata", input.absolutePath, output.absolutePath, *keywords.toTypedArray())
             check(result.callAttr("__getitem__", "success").toBoolean()) { result.callAttr("__getitem__", "message").toString() }
             check(output.isFile && output.length() > 0) { "Metadata writer produced no output" }

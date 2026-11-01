@@ -265,7 +265,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                             Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             Text(name.substringAfterLast('.', "").uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        if (vm.inputFileNames.size == 1 && name.endsWith(".epub", ignoreCase = true)) {
+                                        if (vm.inputFileNames.size == 1 && name.substringAfterLast('.', "").lowercase() in BookMetadata.formats) {
                                             TooltipBox(
                                                 positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                                 tooltip = { PlainTooltip { Text(stringResource(R.string.edit_metadata)) } },

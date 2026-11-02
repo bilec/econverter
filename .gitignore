@@ -24,6 +24,7 @@
 # app module
 !/app/build.gradle.kts
 !/app/src/main/AndroidManifest.xml
+!/app/src/main/assets/chaquopy_native_loader.py
 
 # python wheels
 !/app/libs/*.whl

@@ -1,8 +1,13 @@
 import com.android.build.api.variant.FilterConfiguration
+import groovy.json.JsonOutput
+import java.io.InputStream
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+import org.gradle.api.file.DirectoryProperty
 
+val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val baseVersionCode = providers.gradleProperty("VERSION_CODE").map(String::toInt).get()
 val releaseVersionName = providers.gradleProperty("VERSION_NAME").get()
-val abiVersionCodes = mapOf("armeabi-v7a" to 1, "x86_64" to 3, "arm64-v8a" to 4)
 val ebookConverterLibVersion = providers.gradleProperty("EBOOK_CONVERTER_LIB_VERSION").get()
 val pypdfium2Version = providers.gradleProperty("PYPDFIUM2_VERSION").get()
 val bokoAndroidVersion = providers.gradleProperty("BOKO_ANDROID_VERSION").get()
@@ -12,6 +17,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.chaquo.python")
     id("com.diffplug.spotless")
+}
+
+abstract class InstalledPythonLibraries : DefaultTask() {
+    @get:OutputDirectory
+    abstract val jniDirectory: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val assetsDirectory: DirectoryProperty
 }
 
 android {
@@ -27,7 +40,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
+            abiFilters += abiVersionCodes.keys
         }
     }
 
@@ -35,7 +48,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "x86_64", "armeabi-v7a")
+            include(*abiVersionCodes.keys.toTypedArray())
             isUniversalApk = true
         }
     }
@@ -52,6 +65,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dcltest"
+            versionNameSuffix = "-dcl-test"
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release") // ponytail: null when KEYSTORE_PATH unset → F-Droid signs instead
@@ -70,6 +87,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    packaging {
+        jniLibs.useLegacyPackaging = true
+    }
 }
 
 kotlin {
@@ -79,6 +100,68 @@ kotlin {
 }
 
 androidComponents {
+    onVariants { variant ->
+        val taskSuffix = variant.name.replaceFirstChar(Char::uppercaseChar)
+        val pythonAssets = listOf("misc", "requirements", "source").map {
+            layout.buildDirectory.dir("python/assets/$it/${variant.name}/chaquopy")
+        }
+        val nativeLibraries = layout.buildDirectory.dir("generated/installedPython/${variant.name}/jniLibs")
+        val nativeAssets = layout.buildDirectory.dir("generated/installedPython/${variant.name}/assets")
+        val bundleLibraries = tasks.register<InstalledPythonLibraries>("generate${taskSuffix}InstalledPythonLibraries") {
+            jniDirectory.set(nativeLibraries)
+            assetsDirectory.set(nativeAssets)
+            dependsOn("generate${taskSuffix}PythonMiscAssets", "generate${taskSuffix}PythonRequirementsAssets", "generate${taskSuffix}PythonSourceAssets")
+            inputs.files(pythonAssets)
+            doLast {
+                val librariesDirectory = nativeLibraries.get().asFile
+                val assetsDirectory = nativeAssets.get().asFile
+                val pythonAssetDirectories = pythonAssets.map { it.get().asFile }
+                val nativeLibraryPattern = Regex("\\.so($|\\.)")
+                librariesDirectory.deleteRecursively()
+                assetsDirectory.deleteRecursively()
+                for (abi in abiVersionCodes.keys) {
+                    val mapping = sortedMapOf<String, String>()
+                    fun bundleLibrary(relativePath: String, source: InputStream) {
+                        require(!relativePath.startsWith('/') && relativePath.split('/').none { it == ".." })
+                        val hash = MessageDigest.getInstance("SHA-256").digest(relativePath.toByteArray()).joinToString("") { "%02x".format(it) }
+                        val libraryName = "libchaquopy_$hash.so"
+                        check(mapping.put(relativePath, libraryName) == null) { "Duplicate native Python library: $relativePath" }
+                        val destination = librariesDirectory.resolve("$abi/$libraryName")
+                        check(destination.parentFile.isDirectory || destination.parentFile.mkdirs())
+                        destination.outputStream().use { source.copyTo(it) }
+                    }
+                    for (assetDirectory in pythonAssetDirectories) {
+                        val bootstrap = assetDirectory.resolve("bootstrap-native/$abi")
+                        if (bootstrap.isDirectory) {
+                            bootstrap.walkTopDown().filter { it.isFile && nativeLibraryPattern.containsMatchIn(it.name) }.forEach { library ->
+                                library.inputStream().use { bundleLibrary("bootstrap-native/$abi/${library.relativeTo(bootstrap).invariantSeparatorsPath}", it) }
+                            }
+                        }
+                        for (archiveName in listOf("stdlib-$abi.imy", "requirements-$abi.imy", "requirements-common.imy", "app.imy")) {
+                            val archive = assetDirectory.resolve(archiveName)
+                            if (!archive.isFile) continue
+                            val packageDirectory = when {
+                                archiveName.startsWith("stdlib-") -> "stdlib-$abi"
+                                archiveName.startsWith("requirements-") -> "requirements"
+                                else -> "app"
+                            }
+                            ZipFile(archive).use { zip ->
+                                zip.entries().asSequence().filter { !it.isDirectory && nativeLibraryPattern.containsMatchIn(it.name) }.forEach { entry ->
+                                    zip.getInputStream(entry).use { bundleLibrary("AssetFinder/$packageDirectory/${entry.name}", it) }
+                                }
+                            }
+                        }
+                    }
+                    val manifest = assetsDirectory.resolve("chaquopy/native-libraries/$abi.json")
+                    check(manifest.parentFile.isDirectory || manifest.parentFile.mkdirs())
+                    manifest.writeText(JsonOutput.toJson(mapping))
+                }
+            }
+        }
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(bundleLibraries) { it.jniDirectory }
+        variant.sources.assets?.addGeneratedSourceDirectory(bundleLibraries) { it.assetsDirectory }
+    }
+
     onVariants(selector().withBuildType("release")) { variant ->
         variant.outputs.forEach { output ->
             val abiVersionCode = output.filters

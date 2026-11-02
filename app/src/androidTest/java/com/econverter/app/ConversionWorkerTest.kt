@@ -25,7 +25,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -560,6 +559,49 @@ class ConversionWorkerTest {
 
     @Test
     @ConversionSmokeTest
+    fun pythonLoadsNativeLibrariesOutsideAppData() {
+        if (!Python.isStarted()) Python.start(InstalledPythonPlatform(context))
+        val python = Python.getInstance()
+        val nativeDirectory = File(context.applicationInfo.nativeLibraryDir).canonicalPath
+        for (moduleName in listOf("zlib", "_ssl", "lxml.etree", "PIL._imaging")) {
+            val module = python.getModule(moduleName)
+            val modulePath = File(module.get("__file__")!!.toString()).canonicalPath
+            assertTrue("$moduleName must load from $nativeDirectory, got $modulePath", modulePath.startsWith("$nativeDirectory/"))
+        }
+        python.getModule("pypdfium2")
+        val dataDirectory = context.dataDir.canonicalPath
+        val executableAppFiles = File("/proc/self/maps").readLines().filter { mapping ->
+            val fields = mapping.split(Regex("\\s+"), limit = 6)
+            fields.size == 6 && fields[1].contains('x') && fields[5].startsWith("$dataDirectory/")
+        }
+        assertTrue("Executable app files: $executableAppFiles", executableAppFiles.isEmpty())
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun fb2ConversionUsesInstalledPythonLibraries() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val source = File(directory, "source.fb2").apply {
+                writeText("""<?xml version="1.0" encoding="utf-8"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><description><title-info><genre>prose</genre><author><first-name>Test</first-name><last-name>Author</last-name></author><book-title>FB2 Title</book-title><lang>en</lang></title-info></description><body><section><p>FB2 content marker</p></section></body></FictionBook>""")
+            }
+            val worker = ConversionWorker(context, File(directory, "run"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+            assertTrue(result.status.text(context), result.status.isSuccess)
+            ZipFile(result.files.single()).use { zip ->
+                val content = zip.entries().asSequence().filter { it.name.endsWith(".xhtml") || it.name.endsWith(".html") }.joinToString("\n") { entry ->
+                    zip.getInputStream(entry).bufferedReader().use { it.readText() }
+                }
+                assertTrue(content, content.contains("FB2 content marker"))
+            }
+            assertTrue(source.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
     fun sameFormatConversionKeepsOutputsNamedLikeTemporaryFiles() = runBlocking<Unit> {
         val directory = File(context.filesDir, "test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -806,7 +848,7 @@ class ConversionWorkerTest {
         .map { it.absolutePath }.toSet()
 
     private fun makePdf(file: File): File {
-        if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+        if (!Python.isStarted()) Python.start(InstalledPythonPlatform(context))
         val canvas = Python.getInstance().getModule("reportlab.pdfgen.canvas").callAttr("Canvas", file.absolutePath)
         canvas.callAttr("setTitle", "PDF Title")
         for (number in 1..3) {

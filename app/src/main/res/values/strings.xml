@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="status_error">Error: %1$s</string>
+    <string name="status_reading_metadata">Reading metadata...</string>
+    <string name="status_updating_metadata">Updating metadata...</string>
+    <string name="status_metadata_done">Metadata updated - choose where to save</string>
+    <string name="edit_metadata">Edit metadata</string>
+    <string name="apply_metadata">Create edited copy</string>
+    <string name="add_author">Add author</string>
+    <string name="remove_author">Remove author</string>
     <string name="status_selected_skipped">Selected %1$s eBooks (%2$s unsupported skipped)</string>
     <string name="status_unsupported_selection">Unsupported format(s) selected</string>
     <string name="status_unsupported_conversion">Error: Unsupported input or output for %1$s</string>

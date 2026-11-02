@@ -65,10 +65,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            applicationIdSuffix = ".dcltest"
-            versionNameSuffix = "-dcl-test"
-        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release") // ponytail: null when KEYSTORE_PATH unset → F-Droid signs instead

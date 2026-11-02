@@ -36,7 +36,54 @@ import java.util.UUID
 @Config(sdk = [28])
 class ConverterViewModelTest {
     @Test
-    fun startupCleanupRemovesOldRunsButPreservesNewRunsAndOriginals() = runBlocking<Unit> {
+    fun metadataEditingRequiresOneSupportedBookAndAnIdleApp() {
+        val vm = ConverterViewModel()
+        assertFalse(vm.canEditMetadata)
+        vm.inputUris = listOf(Uri.parse("content://test/book"))
+        vm.inputFileNames = listOf("book.EPUB")
+        vm.selectBackend(ConversionBackend.BOKO)
+        vm.outputFormat = "kfx"
+        for (name in listOf("book.EPUB", "book.AZW3", "book.MOBI")) {
+            vm.inputFileNames = listOf(name)
+            assertTrue(name, vm.canEditMetadata)
+        }
+        vm.isConverting = true
+        assertFalse(vm.canEditMetadata)
+        vm.isConverting = false
+        vm.pendingSave = true
+        assertFalse(vm.canEditMetadata)
+        vm.pendingSave = false
+        vm.isSaving = true
+        assertFalse(vm.canEditMetadata)
+        vm.isSaving = false
+        vm.inputFileNames = listOf("book.pdf")
+        assertFalse(vm.canEditMetadata)
+        vm.inputFileNames = listOf("one.epub", "two.epub")
+        assertFalse(vm.canEditMetadata)
+        vm.inputUris = listOf(Uri.parse("content://test/one"), Uri.parse("content://test/two"))
+        assertTrue(vm.canEditMetadata)
+        vm.inputFileNames = listOf("one.txt", "two.pdf")
+        assertFalse(vm.canEditMetadata)
+    }
+
+    @Test
+    fun metadataTransportAndChangesPreserveLiteralAuthorsAndExplicitClearing() {
+        val original = BookMetadata("Title", listOf("Research & Development", "Other Author"), "Publisher", "Description")
+        assertEquals(original, BookMetadata.fromBundle(original.toBundle()))
+        assertTrue(original.changesFrom(original).isEmpty)
+        val changed = original.copy(publisher = "")
+        val fields = changed.changesFrom(original)
+        assertEquals(setOf("publisher"), fields.keySet())
+        assertEquals("", fields.getString("publisher"))
+        val authors = original.copy(authors = listOf("Research & Development"))
+        assertEquals(listOf("Research & Development"), authors.changesFrom(original).getStringArrayList("authors"))
+        assertFalse(original.copy(title = " ").canApplyTo(original))
+        assertFalse(original.copy(authors = listOf("")).canApplyTo(original))
+        assertTrue(original.copy(authors = emptyList()).copy(title = "Updated").canApplyTo(original.copy(authors = emptyList())))
+    }
+
+    @Test
+    fun startupCleanupRemovesExpiredRunsButPreservesRecentRunsAndOriginals() = runBlocking<Unit> {
         val context = RuntimeEnvironment.getApplication()
         val runs = File(context.filesDir, "conversion-runs").apply { mkdirs() }
         val stale = File(runs, "stale-${UUID.randomUUID()}").apply { mkdirs() }
@@ -47,10 +94,10 @@ class ConverterViewModelTest {
             File(stale, "source/input.epub").writeText("temporary input")
             File(stale, "partial.kfx").writeText("unfinished output")
             assertTrue(stale.setLastModified(1L))
-            val vm = ConverterViewModel()
             assertTrue(recent.mkdirs())
             val currentOutput = File(recent, "converted.epub").apply { writeText("current output") }
-            assertTrue(recent.setLastModified(System.currentTimeMillis() + 60_000L))
+            assertTrue(recent.setLastModified(System.currentTimeMillis() - 60_000L))
+            val vm = ConverterViewModel()
 
             vm.purgeStaleTempFiles(context)
             vm.viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }

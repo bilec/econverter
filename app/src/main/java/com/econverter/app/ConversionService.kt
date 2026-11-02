@@ -7,13 +7,56 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
 import android.os.*
+import com.chaquo.python.Kwarg
 import com.chaquo.python.Python
 import io.github.bilec.boko.Boko
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.json.JSONArray
 import java.io.File
 import kotlin.coroutines.resume
 
-data class ConversionResult(val status: StatusMessage, val files: List<File> = emptyList())
+data class ConversionResult(val status: StatusMessage, val files: List<File> = emptyList(), val metadata: BookMetadata? = null)
+
+data class BookMetadata(val title: String, val authors: List<String>, val publisher: String, val comments: String) {
+    fun toBundle(): Bundle = Bundle().apply {
+        putString("title", title)
+        putStringArrayList("authors", ArrayList(authors))
+        putString("publisher", publisher)
+        putString("comments", comments)
+    }
+
+    fun changesFrom(original: BookMetadata): Bundle = Bundle().apply {
+        if (title != original.title) putString("title", title)
+        if (authors != original.authors) putStringArrayList("authors", ArrayList(authors))
+        if (publisher != original.publisher) putString("publisher", publisher)
+        if (comments != original.comments) putString("comments", comments)
+    }
+
+    fun canApplyTo(original: BookMetadata): Boolean = !changesFrom(original).isEmpty &&
+        (title == original.title || title.isNotBlank()) &&
+        (authors == original.authors || (authors.isNotEmpty() && authors.all(String::isNotBlank)))
+
+    companion object {
+        val formats = setOf("epub", "azw3", "mobi")
+
+        fun requireTransportSize(fields: Bundle) {
+            val parcel = Parcel.obtain()
+            try {
+                parcel.writeBundle(fields)
+                require(parcel.dataSize() <= 64 * 1024) { "Metadata is too large to edit (limit: 64 KiB)." }
+            } finally {
+                parcel.recycle()
+            }
+        }
+
+        fun fromBundle(bundle: Bundle): BookMetadata = BookMetadata(
+            bundle.getString("title").orEmpty(),
+            bundle.getStringArrayList("authors").orEmpty(),
+            bundle.getString("publisher").orEmpty(),
+            bundle.getString("comments").orEmpty(),
+        )
+    }
+}
 
 class ConversionWorker(
     context: Context,
@@ -23,6 +66,8 @@ class ConversionWorker(
     private val format: String,
     private val args: List<String>,
     private val backend: ConversionBackend = ConversionBackend.AUTO,
+    private val operation: Int = ConversionService.RUN,
+    private val metadataFields: Bundle = Bundle(),
     private val onProgress: (StatusMessage) -> Unit = {},
 ) {
     private val context = context.applicationContext
@@ -78,6 +123,7 @@ class ConversionWorker(
                             ConversionResult(
                                 StatusMessage.fromBundle(message.data),
                                 message.data.getStringArrayList("files").orEmpty().map { File(it) },
+                                message.data.getBundle("metadata")?.let(BookMetadata::fromBundle),
                             ),
                         )
                     }
@@ -89,9 +135,10 @@ class ConversionWorker(
                     binder = service
                     remote = Messenger(service)
                     try {
+                        if (operation == ConversionService.UPDATE_METADATA) BookMetadata.requireTransportSize(metadataFields)
                         service.linkToDeath(death, 0)
                         linked = true
-                        val message = Message.obtain(null, if (cancelled) ConversionService.CANCEL else ConversionService.RUN)
+                        val message = Message.obtain(null, if (cancelled) ConversionService.CANCEL else operation)
                         message.replyTo = reply
                         message.data = Bundle().apply {
                             putString("directory", directory.absolutePath)
@@ -100,8 +147,11 @@ class ConversionWorker(
                             putString("format", format)
                             putString("backend", backend.name)
                             putStringArrayList("args", ArrayList(args))
+                            putBundle("metadataFields", metadataFields)
                         }
                         remote?.send(message)
+                    } catch (error: IllegalArgumentException) {
+                        finish(ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true)))
                     } catch (_: RemoteException) {
                         finish(ConversionResult(StatusMessage(R.string.status_worker_start_failed, isError = true)))
                     }
@@ -136,6 +186,8 @@ class ConversionService : Service() {
         const val CANCEL = 2
         const val PROGRESS = 3
         const val DONE = 4
+        const val READ_METADATA = 5
+        const val UPDATE_METADATA = 6
     }
 
     private var started = false
@@ -144,13 +196,14 @@ class ConversionService : Service() {
             when (message.what) {
                 CANCEL -> Process.killProcess(Process.myPid())
 
-                RUN -> if (!started) {
+                RUN, READ_METADATA, UPDATE_METADATA -> if (!started) {
                     started = true
                     val data = message.data
                     val reply = message.replyTo
+                    val operation = message.what
                     Thread {
                         val result = try {
-                            convertBooks(data, reply)
+                            if (operation == RUN) convertBooks(data, reply) else processMetadata(data, operation)
                         } catch (error: Exception) {
                             ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true))
                         }
@@ -159,6 +212,7 @@ class ConversionService : Service() {
                             DONE,
                             result.status.toBundle().apply {
                                 putStringArrayList("files", ArrayList(result.files.map { it.absolutePath }))
+                                result.metadata?.let { putBundle("metadata", it.toBundle()) }
                             },
                         )
                     }.start()
@@ -180,6 +234,54 @@ class ConversionService : Service() {
             reply.send(Message.obtain(null, code).apply { this.data = data })
         } catch (_: RemoteException) {
             Process.killProcess(Process.myPid())
+        }
+    }
+
+    private fun processMetadata(data: Bundle, operation: Int): ConversionResult {
+        val directory = File(requireNotNull(data.getString("directory")))
+        val name = File(requireNotNull(data.getStringArrayList("names")).single()).name
+        val uri = Uri.parse(requireNotNull(data.getStringArrayList("uris")).single())
+        val format = name.substringAfterLast('.', "").lowercase()
+        require(format in BookMetadata.formats && data.getString("format") == format) { "Metadata editing requires one EPUB, AZW3 or MOBI with matching output format" }
+        require(data.getStringArrayList("args").isNullOrEmpty()) { "Conversion options do not apply to metadata editing" }
+        val inputDirectory = File(directory, "source").apply { check(mkdirs()) { "Could not create input directory" } }
+        val input = File(inputDirectory, "book.$format")
+        try {
+            val stream = contentResolver.openInputStream(uri) ?: error("Could not read $name")
+            stream.use { source -> input.outputStream().use { source.copyTo(it) } }
+            val python = conversionPython(directory)
+            val module = python.getModule("ebook_converter_lib")
+            if (operation == READ_METADATA) {
+                val result = module.callAttr("read_metadata", input.absolutePath)
+                check(result.callAttr("__getitem__", "success").toBoolean()) { result.callAttr("__getitem__", "message").toString() }
+                val metadata = result.callAttr("__getitem__", "metadata")
+                return ConversionResult(
+                    StatusMessage(),
+                    metadata = BookMetadata(
+                        metadata.callAttr("__getitem__", "title").toString(),
+                        metadata.callAttr("__getitem__", "authors").asList().map { it.toString() },
+                        metadata.callAttr("__getitem__", "publisher").toString(),
+                        metadata.callAttr("__getitem__", "comments").toString(),
+                    ).also { BookMetadata.requireTransportSize(it.toBundle()) },
+                )
+            }
+            val fields = requireNotNull(data.getBundle("metadataFields"))
+            require(!fields.isEmpty && fields.keySet().all { it in setOf("title", "authors", "publisher", "comments") }) { "Invalid metadata fields" }
+            val keywords = fields.keySet().map { field ->
+                val value = if (field == "authors") {
+                    python.getModule("json").callAttr("loads", JSONArray(requireNotNull(fields.getStringArrayList(field))).toString())
+                } else {
+                    requireNotNull(fields.getString(field))
+                }
+                Kwarg(field, value)
+            }
+            val output = File(directory, "${name.substringBeforeLast('.').ifBlank { "book" }}.$format")
+            val result = module.callAttr("update_metadata", input.absolutePath, output.absolutePath, *keywords.toTypedArray())
+            check(result.callAttr("__getitem__", "success").toBoolean()) { result.callAttr("__getitem__", "message").toString() }
+            check(output.isFile && output.length() > 0) { "Metadata writer produced no output" }
+            return ConversionResult(StatusMessage(R.string.status_metadata_done, isSuccess = true), listOf(output))
+        } finally {
+            inputDirectory.deleteRecursively()
         }
     }
 
@@ -254,11 +356,16 @@ class ConversionService : Service() {
         }
     }
 
-    private fun convertWithCalibre(input: File, output: File, args: List<String>, directory: File) {
+    private fun conversionPython(directory: File): Python {
         if (!Python.isStarted()) Python.start(InstalledPythonPlatform(this))
         val python = Python.getInstance()
         val scratch = File(directory, "tmp").apply { check(isDirectory || mkdirs()) { "Could not create scratch directory" } }
         python.getModule("tempfile").put("tempdir", scratch.absolutePath)
+        return python
+    }
+
+    private fun convertWithCalibre(input: File, output: File, args: List<String>, directory: File) {
+        val python = conversionPython(directory)
         val result = python.getModule("ebook_converter_lib").callAttr("convert", input.absolutePath, output.absolutePath, *args.toTypedArray())
         check(result.callAttr("__getitem__", "success").toBoolean()) { result.callAttr("__getitem__", "message").toString() }
         check(output.isFile && output.length() > 0) { "Calibre produced no output" }

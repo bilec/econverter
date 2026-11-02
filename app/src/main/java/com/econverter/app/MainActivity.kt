@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -64,7 +65,7 @@ class MainActivity : ComponentActivity() {
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
     val removeBookLabel = stringResource(R.string.remove_book)
-    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave
+    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave && vm.bookMetadata == null
 
     LaunchedEffect(Unit) {
         vm.loadBackendPreference(context)
@@ -102,6 +103,9 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     var showSettings by remember { mutableStateOf(false) }
     if (showSettings) {
         BackendSettingsDialog(vm.backend, { vm.selectBackend(it, context) }, { showSettings = false })
+    }
+    vm.bookMetadata?.takeIf { !vm.isConverting }?.let {
+        MetadataDialog(vm.metadataFileName, it, requireNotNull(vm.metadataDraft), vm::changeMetadataDraft, vm.status.takeIf { status -> status.isError || status.resourceId == R.string.status_cancelled }, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata)
     }
 
     Scaffold(
@@ -263,6 +267,17 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                                             Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             Text(name.substringAfterLast('.', "").uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
+                                        if (name.substringAfterLast('.', "").lowercase() in BookMetadata.formats) {
+                                            TooltipBox(
+                                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                                tooltip = { PlainTooltip { Text(stringResource(R.string.edit_metadata)) } },
+                                                state = rememberTooltipState(),
+                                            ) {
+                                                IconButton(onClick = { vm.readMetadata(context, uri) }, enabled = vm.canEditMetadata) {
+                                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_metadata))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -291,7 +306,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
 
                 ConversionOptions(vm, enabled = canEdit)
 
-                if (vm.status.resourceId != 0) {
+                if (vm.status.resourceId != 0 && (vm.bookMetadata == null || vm.isConverting)) {
                     val isError = vm.status.isError
                     Surface(
                         color = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,

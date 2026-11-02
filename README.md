@@ -16,6 +16,16 @@ Android app for converting e-books individually or in batches with Calibre and b
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
 3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
+Each EPUB, AZW3, or MOBI has **Edit metadata**, including in a multi-book queue.
+Choose **Create edited copy**, then **Save** or **Share**; originals and the queue
+stay unchanged. Cancelling an update returns to the editor with the draft retained;
+failed updates also keep the draft for retry.
+Metadata reads and updates exceeding 64 KiB of serialized data are rejected,
+not truncated.
+
+Shared output files are retained for one hour, including across app restarts,
+then become eligible for cleanup.
+
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.
 
@@ -65,7 +75,9 @@ See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.
 
 ### CI Debug APKs
 
-After emulator tests pass, approve `debug-apk` via **Review deployments**.
+Run **Debug APK** manually from **Actions**, selecting the branch to build
+(including feature branches with open PRs). This workflow builds debug APKs
+without running tests or requiring deployment approval.
 Download `debug-apks-*` from the run's **Artifacts** (GitHub sign-in required).
 Artifacts expire after 14 days; no release is created.
 
@@ -103,5 +115,5 @@ using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" alt="Conversion backend settings" width="250" height="556" /> |
 | **Options** | **Save and Share** |
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" alt="Expanded conversion options" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Completed conversion with Save and Share actions" width="250" height="556" /> |
-| **Dark Mode** | |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> | |
+| **Metadata Editor** | **Dark Mode** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Metadata editor showing book title, authors, publisher and comments" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> |

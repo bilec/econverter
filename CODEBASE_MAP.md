@@ -25,7 +25,7 @@
 | [app/src/main/java/com/econverter/app/MainActivity.kt](app/src/main/java/com/econverter/app/MainActivity.kt) | Entry Activity, converter screen, and SAF file pickers. |
 | [app/src/main/java/com/econverter/app/ConverterTheme.kt](app/src/main/java/com/econverter/app/ConverterTheme.kt) | System-selected light/dark palettes and Compose theme. |
 | [app/src/main/java/com/econverter/app/ConversionOptions.kt](app/src/main/java/com/econverter/app/ConversionOptions.kt) | Conversion options, grouped fields, dropdowns, and PDF cleanup preset. |
-| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Settings/About dialogs and GitHub issue reporting. |
+| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Metadata editor, Settings/About dialogs, and GitHub issue reporting. |
 | [app/src/main/java/com/econverter/app/ConverterViewModel.kt](app/src/main/java/com/econverter/app/ConverterViewModel.kt) | State container, file input/output handling, coroutine execution for conversion. |
 | [app/src/main/java/com/econverter/app/ConversionBackend.kt](app/src/main/java/com/econverter/app/ConversionBackend.kt) | Backend descriptions and accepted input/output capabilities. |
 | [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Bound conversion process and cancellable Binder client. |
@@ -55,6 +55,8 @@
    [issue #30](https://github.com/bilec/econverter/issues/30).
 
    `StatusMessage` carries progress and results through Binder to the ViewModel and history.
+
+   Per-book metadata edits preserve the queue and format, bypass conversion backends, and reuse Save/Share. The ViewModel retains the target and draft across activity recreation and failed writes; only changed fields are sent, with selection locked until success or dismissal.
 
    Native conversion calls `io.github.bilec.boko.Boko` from the external Android library. This repository contains no Rust or JNI implementation.
 

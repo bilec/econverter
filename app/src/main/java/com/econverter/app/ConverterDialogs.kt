@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +24,70 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
 
 private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
+
+@Composable
+internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: BookMetadata, onChange: (BookMetadata) -> Unit, status: StatusMessage?, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(stringResource(R.string.edit_metadata))
+                Text(fileName, style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        text = {
+            CenterDialogWindow()
+            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (status != null) Text(stringResource(status.resourceId, *status.args.toTypedArray()), color = if (status.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = draft.title,
+                    onValueChange = { onChange(draft.copy(title = it)) },
+                    label = { Text(stringResource(R.string.title_field)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = draft.title != original.title && draft.title.isBlank(),
+                    singleLine = true,
+                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.authors), modifier = Modifier.weight(1f))
+                    IconButton(onClick = { onChange(draft.copy(authors = draft.authors + "")) }) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_author))
+                    }
+                }
+                draft.authors.forEachIndexed { index, author ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = author,
+                            onValueChange = { value -> onChange(draft.copy(authors = draft.authors.mapIndexed { position, name -> if (position == index) value else name })) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            isError = draft.authors != original.authors && author.isBlank(),
+                        )
+                        IconButton(onClick = { onChange(draft.copy(authors = draft.authors.filterIndexed { position, _ -> position != index })) }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remove_author))
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = draft.publisher,
+                    onValueChange = { onChange(draft.copy(publisher = it)) },
+                    label = { Text(stringResource(R.string.publisher)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = draft.comments,
+                    onValueChange = { onChange(draft.copy(comments = it)) },
+                    label = { Text(stringResource(R.string.comments)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 5,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onApply(draft) }, enabled = draft.canApplyTo(original)) { Text(stringResource(R.string.apply_metadata)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
 
 @Composable
 internal fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (ConversionBackend) -> Unit, onDismiss: () -> Unit) {

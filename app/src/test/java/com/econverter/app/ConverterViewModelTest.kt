@@ -83,7 +83,7 @@ class ConverterViewModelTest {
     }
 
     @Test
-    fun startupCleanupRemovesOldRunsButPreservesNewRunsAndOriginals() = runBlocking<Unit> {
+    fun startupCleanupRemovesExpiredRunsButPreservesRecentRunsAndOriginals() = runBlocking<Unit> {
         val context = RuntimeEnvironment.getApplication()
         val runs = File(context.filesDir, "conversion-runs").apply { mkdirs() }
         val stale = File(runs, "stale-${UUID.randomUUID()}").apply { mkdirs() }
@@ -94,10 +94,10 @@ class ConverterViewModelTest {
             File(stale, "source/input.epub").writeText("temporary input")
             File(stale, "partial.kfx").writeText("unfinished output")
             assertTrue(stale.setLastModified(1L))
-            val vm = ConverterViewModel()
             assertTrue(recent.mkdirs())
             val currentOutput = File(recent, "converted.epub").apply { writeText("current output") }
-            assertTrue(recent.setLastModified(System.currentTimeMillis() + 60_000L))
+            assertTrue(recent.setLastModified(System.currentTimeMillis() - 60_000L))
+            val vm = ConverterViewModel()
 
             vm.purgeStaleTempFiles(context)
             vm.viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }

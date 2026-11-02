@@ -97,7 +97,6 @@ class ConverterViewModel : ViewModel() {
     internal var outputFiles: List<File> = emptyList()
     internal var internalWorkDirectory: File? = null
     private var worker: ConversionWorker? = null
-    private val startedAt = System.currentTimeMillis()
     private var backendPreferenceLoaded = false
 
     val isBatch: Boolean get() = inputFileNames.size > 1
@@ -156,7 +155,7 @@ class ConverterViewModel : ViewModel() {
         selectBackend(entry.backend)
     }
 
-    fun purgeStaleTempFiles(context: android.content.Context, cutoffMillis: Long = startedAt) {
+    fun purgeStaleTempFiles(context: android.content.Context, cutoffMillis: Long = System.currentTimeMillis() - SHARED_RUN_RETENTION_MILLIS) {
         viewModelScope.launch(Dispatchers.IO) {
             File(context.filesDir, CONVERSION_RUNS_DIRECTORY).listFiles()?.forEach { file ->
                 if (file != internalWorkDirectory && file.lastModified() < cutoffMillis) {
@@ -238,7 +237,7 @@ class ConverterViewModel : ViewModel() {
 
     private fun startOperation(context: Context, operation: Int, metadataFields: Bundle = Bundle()) {
         cleanup()
-        purgeStaleTempFiles(context, System.currentTimeMillis() - SHARED_RUN_RETENTION_MILLIS)
+        purgeStaleTempFiles(context)
         val target = if (operation == ConversionService.RUN) null else requireNotNull(metadataTarget)
         val uris = if (target == null) inputUris.toList() else listOf(target.first)
         val names = if (target == null) inputFileNames.toList() else listOf(target.second)

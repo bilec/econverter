@@ -18,6 +18,11 @@ Android app for converting e-books individually or in batches with Calibre and b
 
 Each EPUB, AZW3, or MOBI has **Edit metadata**, including in a multi-book queue.
 **Apply**, then **Save** or **Share** its edited copy; originals and the queue stay unchanged.
+Metadata reads and updates exceeding 64 KiB of serialized data are rejected,
+not truncated.
+
+Shared output files are retained for one hour, including across app restarts,
+then become eligible for cleanup.
 
 **Cancel** discards all temporary outputs from the current batch, including completed
 books; originals are unchanged.

@@ -39,6 +39,16 @@ data class BookMetadata(val title: String, val authors: List<String>, val publis
     companion object {
         val formats = setOf("epub", "azw3", "mobi")
 
+        fun requireTransportSize(fields: Bundle) {
+            val parcel = Parcel.obtain()
+            try {
+                parcel.writeBundle(fields)
+                require(parcel.dataSize() <= 64 * 1024) { "Metadata is too large to edit (limit: 64 KiB)." }
+            } finally {
+                parcel.recycle()
+            }
+        }
+
         fun fromBundle(bundle: Bundle): BookMetadata = BookMetadata(
             bundle.getString("title").orEmpty(),
             bundle.getStringArrayList("authors").orEmpty(),
@@ -125,6 +135,7 @@ class ConversionWorker(
                     binder = service
                     remote = Messenger(service)
                     try {
+                        if (operation == ConversionService.UPDATE_METADATA) BookMetadata.requireTransportSize(metadataFields)
                         service.linkToDeath(death, 0)
                         linked = true
                         val message = Message.obtain(null, if (cancelled) ConversionService.CANCEL else operation)
@@ -139,6 +150,8 @@ class ConversionWorker(
                             putBundle("metadataFields", metadataFields)
                         }
                         remote?.send(message)
+                    } catch (error: IllegalArgumentException) {
+                        finish(ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true)))
                     } catch (_: RemoteException) {
                         finish(ConversionResult(StatusMessage(R.string.status_worker_start_failed, isError = true)))
                     }
@@ -249,7 +262,7 @@ class ConversionService : Service() {
                         metadata.callAttr("__getitem__", "authors").asList().map { it.toString() },
                         metadata.callAttr("__getitem__", "publisher").toString(),
                         metadata.callAttr("__getitem__", "comments").toString(),
-                    ),
+                    ).also { BookMetadata.requireTransportSize(it.toBundle()) },
                 )
             }
             val fields = requireNotNull(data.getBundle("metadataFields"))

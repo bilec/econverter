@@ -72,6 +72,45 @@ class ConversionWorkerTest {
 
     @Test
     @ConversionSmokeTest
+    fun metadataWorkerRejectsOversizedReadsAndUpdatesWithoutChangingOriginals() = runBlocking<Unit> {
+        val directory = File(context.filesDir, "metadata-size-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            for ((operation, size) in listOf(
+                ConversionService.READ_METADATA to 40_000,
+                ConversionService.UPDATE_METADATA to 40_000,
+                ConversionService.READ_METADATA to 600_000,
+                ConversionService.UPDATE_METADATA to 600_000,
+            )) {
+                val comments = "x".repeat(size)
+                val source = makeEpub(File(directory, "$operation-$size.epub"), comments = if (operation == ConversionService.READ_METADATA) comments else "")
+                val original = source.readBytes()
+                val worker = ConversionWorker(
+                    context,
+                    File(directory, "run-$operation-$size"),
+                    listOf(Uri.fromFile(source)),
+                    listOf(source.name),
+                    "epub",
+                    emptyList(),
+                    operation = operation,
+                    metadataFields = android.os.Bundle().apply {
+                        if (operation == ConversionService.UPDATE_METADATA) putString("comments", comments)
+                    },
+                )
+                val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+                assertTrue(result.status.text(context), result.status.isError)
+                assertTrue(result.status.text(context), result.status.text(context).contains("64 KiB"))
+                assertNull(result.metadata)
+                assertTrue(result.files.isEmpty())
+                assertFalse(File(directory, "run-$operation-$size").exists())
+                assertArrayEquals(original, source.readBytes())
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
     fun metadataWorkerReadsAndUpdatesWithoutConvertingOrChangingOriginal() = runBlocking<Unit> {
         val directory = File(context.filesDir, "conversion-runs/metadata-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -886,12 +925,12 @@ class ConversionWorkerTest {
         return (1 until count).map { bytes.copyOfRange(offsets[it], offsets[it + 1]) }
     }
 
-    private fun makeEpub(file: File, paragraphs: Int = 1): File {
+    private fun makeEpub(file: File, paragraphs: Int = 1, comments: String = ""): File {
         ZipOutputStream(file.outputStream()).use { zip ->
             val entries = mapOf(
                 "mimetype" to "application/epub+zip",
                 "META-INF/container.xml" to """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""",
-                "content.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uid" version="2.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test Book</dc:title><dc:language>en</dc:language><dc:identifier id="uid">test-book-001</dc:identifier><dc:creator>Test Author</dc:creator></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>""",
+                "content.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uid" version="2.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test Book</dc:title><dc:language>en</dc:language><dc:identifier id="uid">test-book-001</dc:identifier><dc:creator>Test Author</dc:creator><dc:description>$comments</dc:description></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>""",
                 "chapter.xhtml" to """<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter</title></head><body><h1>Chapter</h1><table><tr><td>Cell marker</td></tr></table>${"<p>Book text.</p>".repeat(paragraphs)}</body></html>""",
             )
             for ((name, text) in entries) {

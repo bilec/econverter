@@ -68,7 +68,9 @@ See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.
 
 ### CI Debug APKs
 
-After emulator tests pass, approve `debug-apk` via **Review deployments**.
+Run **Debug APK** manually from **Actions**, selecting the branch to build
+(including feature branches with open PRs). This workflow builds debug APKs
+without running tests or requiring deployment approval.
 Download `debug-apks-*` from the run's **Artifacts** (GitHub sign-in required).
 Artifacts expire after 14 days; no release is created.
 

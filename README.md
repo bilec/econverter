@@ -63,6 +63,12 @@ For F-Droid release work, initialize the pinned [CPython submodule](.gitmodules)
 with `git submodule update --init cpython`. Normal builds use installed Python.
 See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.
 
+### CI Debug APKs
+
+After emulator tests pass, approve `debug-apk` via **Review deployments**.
+Download `debug-apks-*` from the run's **Artifacts** (GitHub sign-in required).
+Artifacts expire after 14 days; no release is created.
+
 ## Credits
 
 - [ebook-converter](https://github.com/gryf/ebook-converter), packaged as

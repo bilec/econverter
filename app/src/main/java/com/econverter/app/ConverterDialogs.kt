@@ -26,7 +26,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
 
 @Composable
-internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: BookMetadata, onChange: (BookMetadata) -> Unit, error: String?, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
+internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: BookMetadata, onChange: (BookMetadata) -> Unit, status: StatusMessage?, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -38,7 +38,7 @@ internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: Boo
         text = {
             CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
+                if (status != null) Text(stringResource(status.resourceId, *status.args.toTypedArray()), color = if (status.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = draft.title,
                     onValueChange = { onChange(draft.copy(title = it)) },

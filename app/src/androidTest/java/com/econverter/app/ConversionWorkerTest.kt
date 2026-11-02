@@ -189,10 +189,10 @@ class ConversionWorkerTest {
                 }
                 composeRule.onNodeWithContentDescription("Edit metadata").performScrollTo().performClick()
                 composeRule.waitUntil(90_000) { vm.bookMetadata != null }
-                composeRule.onNodeWithText("Apply").assertIsNotEnabled()
+                composeRule.onNodeWithText("Create edited copy").assertIsNotEnabled()
                 composeRule.onNodeWithText("Test Book").assertIsDisplayed().performTextReplacement("Edited metadata")
                 composeRule.onNodeWithText("Test Author").assertIsDisplayed()
-                composeRule.onNodeWithText("Apply").assertIsEnabled().performClick()
+                composeRule.onNodeWithText("Create edited copy").assertIsEnabled().performClick()
                 composeRule.waitUntil(90_000) { vm.pendingSave && !vm.isConverting }
                 composeRule.onNodeWithText("Save").assertIsDisplayed()
                 composeRule.onNodeWithText("Share").assertIsDisplayed()
@@ -241,8 +241,22 @@ class ConversionWorkerTest {
             composeRule.onNodeWithText("Test Book").performTextReplacement("Retained draft")
             composeRule.activityRule.scenario.recreate()
             composeRule.onNodeWithText("Retained draft").assertIsDisplayed()
+            composeRule.runOnIdle {
+                vm.applyMetadata(context, requireNotNull(vm.metadataDraft))
+                vm.cancelConversion()
+            }
+            composeRule.waitUntil(90_000) { !vm.isConverting }
+            composeRule.onNodeWithText("Retained draft").assertIsDisplayed()
+            composeRule.onNodeWithText(context.getString(R.string.status_cancelled)).assertIsDisplayed()
+            composeRule.runOnIdle {
+                assertFalse(vm.status.isError)
+                assertFalse(vm.shouldAutoDismissStatus)
+                assertFalse(vm.pendingSave)
+                assertTrue(vm.outputFiles.isEmpty())
+                assertArrayEquals(original, source.readBytes())
+            }
             assertTrue(source.delete())
-            composeRule.onNodeWithText("Apply").performClick()
+            composeRule.onNodeWithText("Create edited copy").performClick()
             composeRule.waitUntil(90_000) { vm.status.isError && !vm.isConverting }
             composeRule.onNodeWithText("Retained draft").assertIsDisplayed()
             composeRule.onNodeWithText(vm.status.text(context)).assertIsDisplayed()
@@ -252,7 +266,7 @@ class ConversionWorkerTest {
                 assertTrue(vm.outputFiles.isEmpty())
             }
             source.writeBytes(original)
-            composeRule.onNodeWithText("Apply").assertIsEnabled().performClick()
+            composeRule.onNodeWithText("Create edited copy").assertIsEnabled().performClick()
             composeRule.waitUntil(90_000) { vm.pendingSave && !vm.isConverting }
             composeRule.onNodeWithText("Save").assertIsDisplayed()
             composeRule.runOnIdle {

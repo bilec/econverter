@@ -105,7 +105,7 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         BackendSettingsDialog(vm.backend, { vm.selectBackend(it, context) }, { showSettings = false })
     }
     vm.bookMetadata?.takeIf { !vm.isConverting }?.let {
-        MetadataDialog(vm.metadataFileName, it, requireNotNull(vm.metadataDraft), vm::changeMetadataDraft, if (vm.status.isError) vm.status.text(context) else null, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata)
+        MetadataDialog(vm.metadataFileName, it, requireNotNull(vm.metadataDraft), vm::changeMetadataDraft, vm.status.takeIf { status -> status.isError || status.resourceId == R.string.status_cancelled }, { updated -> vm.applyMetadata(context, updated) }, vm::dismissMetadata)
     }
 
     Scaffold(

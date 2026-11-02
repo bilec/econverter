@@ -114,7 +114,7 @@ class ConverterViewModel : ViewModel() {
             else -> null
         }
     val shouldAutoDismissStatus: Boolean
-        get() = status.resourceId != 0 && status.resourceId != R.string.loading_selection && !status.isError && !isConverting && !isSaving && !pendingSave
+        get() = status.resourceId != 0 && status.resourceId != R.string.loading_selection && !status.isError && !isConverting && !isSaving && !pendingSave && bookMetadata == null
 
     fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
         if (isConverting || isSaving || pendingSave || bookMetadata != null) return

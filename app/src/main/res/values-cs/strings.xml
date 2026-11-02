@@ -5,7 +5,7 @@
     <string name="status_updating_metadata">Aktualizace metadat...</string>
     <string name="status_metadata_done">Metadata aktualizována - vyberte, kam uložit</string>
     <string name="edit_metadata">Upravit metadata</string>
-    <string name="apply_metadata">Použít</string>
+    <string name="apply_metadata">Vytvořit upravenou kopii</string>
     <string name="add_author">Přidat autora</string>
     <string name="remove_author">Odebrat autora</string>
     <string name="status_selected_skipped">Vybrané e-knihy: %1$s (nepodporované přeskočeny: %2$s)</string>

@@ -5,7 +5,7 @@
     <string name="status_updating_metadata">Aktualizowanie metadanych...</string>
     <string name="status_metadata_done">Metadane zaktualizowane - wybierz miejsce zapisu</string>
     <string name="edit_metadata">Edytuj metadane</string>
-    <string name="apply_metadata">Zastosuj</string>
+    <string name="apply_metadata">Utwórz edytowaną kopię</string>
     <string name="add_author">Dodaj autora</string>
     <string name="remove_author">Usuń autora</string>
     <string name="status_selected_skipped">Wybrane e-booki: %1$s (pominięte nieobsługiwane: %2$s)</string>

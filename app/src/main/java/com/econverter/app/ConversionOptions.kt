@@ -13,6 +13,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.econverter.app.FileExtensions.EPUB
+import com.econverter.app.FileExtensions.PDF
 
 private const val PDF_CLEANUP_ARGS = "--enable-heuristics --unwrap-lines --delete-blank-paragraphs " +
     "--remove-paragraph-spacing --dehyphenate --change-justification left"
@@ -28,7 +30,7 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
     }
     if (showOptions) {
         FormatDropdown(stringResource(R.string.output_profile), vm.outputProfile, vm.outputProfiles) { vm.outputProfile = it }
-        if (vm.inputFileNames.any { it.endsWith(".pdf", ignoreCase = true) }) {
+        if (vm.inputFileNames.any { it.endsWith(".$PDF", ignoreCase = true) }) {
             OutlinedButton(
                 onClick = {
                     if (!vm.extraArgs.contains(PDF_CLEANUP_ARGS)) {
@@ -40,7 +42,7 @@ internal fun ConversionOptions(vm: ConverterViewModel, enabled: Boolean) {
             }
         }
         CheckboxRow(stringResource(R.string.smarten_punctuation), vm.smartenPunctuation) { vm.smartenPunctuation = it }
-        if (vm.outputFormat == "epub") {
+        if (vm.outputFormat == EPUB) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.epub_version_label))
                 listOf("2", "3").forEach { version ->

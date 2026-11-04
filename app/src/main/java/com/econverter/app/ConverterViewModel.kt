@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.econverter.app.FileExtensions.EPUB
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,7 +68,7 @@ class ConverterViewModel : ViewModel() {
         private set
     var inputUris by mutableStateOf<List<Uri>>(emptyList())
     var inputFileNames by mutableStateOf<List<String>>(emptyList())
-    var outputFormat by mutableStateOf("epub")
+    var outputFormat by mutableStateOf(EPUB)
     var outputProfile by mutableStateOf("default")
     var smartenPunctuation by mutableStateOf(false)
     var epubVersion by mutableStateOf("2")
@@ -119,7 +120,7 @@ class ConverterViewModel : ViewModel() {
     fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
         if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         backend = value
-        if (outputFormat !in outputFormats) outputFormat = "epub"
+        if (outputFormat !in outputFormats) outputFormat = EPUB
         status = StatusMessage()
         context?.getSharedPreferences(PREFERENCES_NAME, 0)?.edit()?.putString(BACKEND_PREFERENCE_KEY, value.name)?.apply()
     }
@@ -292,7 +293,7 @@ class ConverterViewModel : ViewModel() {
         internalWorkDirectory = null
         val ext = files.first().extension.lowercase()
         val shareIntent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
-            type = if (ext == "epub") "application/epub+zip" else MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+            type = if (ext == EPUB) "application/epub+zip" else MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
             clipData = ClipData.newRawUri(null, uris.first()).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris.single()) else putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
@@ -405,7 +406,7 @@ class ConverterViewModel : ViewModel() {
         val args = mutableListOf<String>()
         if (outputProfile != "default") args += listOf("--output-profile", outputProfile)
         if (smartenPunctuation) args += "--smarten-punctuation"
-        if (outputFormat == "epub" && epubVersion != "2") args += listOf("--epub-version", epubVersion)
+        if (outputFormat == EPUB && epubVersion != "2") args += listOf("--epub-version", epubVersion)
         // Preserve each book's own title during batch conversion.
         if (!isBatch && title.isNotBlank()) args += listOf("--title", title)
         if (authors.isNotBlank()) args += listOf("--authors", authors)

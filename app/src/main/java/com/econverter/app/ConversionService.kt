@@ -9,6 +9,9 @@ import android.net.Uri
 import android.os.*
 import com.chaquo.python.Kwarg
 import com.chaquo.python.Python
+import com.econverter.app.FileExtensions.AZW3
+import com.econverter.app.FileExtensions.EPUB
+import com.econverter.app.FileExtensions.MOBI
 import io.github.bilec.boko.Boko
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
@@ -37,7 +40,7 @@ data class BookMetadata(val title: String, val authors: List<String>, val publis
         (authors == original.authors || (authors.isNotEmpty() && authors.all(String::isNotBlank)))
 
     companion object {
-        val formats = setOf("epub", "azw3", "mobi")
+        val formats = setOf(EPUB, AZW3, MOBI)
 
         fun requireTransportSize(fields: Bundle) {
             val parcel = Parcel.obtain()

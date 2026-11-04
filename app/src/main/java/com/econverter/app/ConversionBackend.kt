@@ -1,6 +1,23 @@
 package com.econverter.app
 
 import androidx.annotation.StringRes
+import com.econverter.app.FileExtensions.AZW3
+import com.econverter.app.FileExtensions.DOCX
+import com.econverter.app.FileExtensions.EPUB
+import com.econverter.app.FileExtensions.FB2
+import com.econverter.app.FileExtensions.HTML
+import com.econverter.app.FileExtensions.HTMLZ
+import com.econverter.app.FileExtensions.KFX
+import com.econverter.app.FileExtensions.LRF
+import com.econverter.app.FileExtensions.MARKDOWN
+import com.econverter.app.FileExtensions.MD
+import com.econverter.app.FileExtensions.MOBI
+import com.econverter.app.FileExtensions.ODT
+import com.econverter.app.FileExtensions.PDB
+import com.econverter.app.FileExtensions.PDF
+import com.econverter.app.FileExtensions.RTF
+import com.econverter.app.FileExtensions.TXT
+import com.econverter.app.FileExtensions.TXTZ
 
 enum class ConversionBackend(
     val label: String,
@@ -15,14 +32,14 @@ enum class ConversionBackend(
     val inputFormats: Set<String>
         get() = when (this) {
             AUTO -> CALIBRE.inputFormats + BOKO.inputFormats
-            CALIBRE -> setOf("epub", "mobi", "azw3", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "md", "markdown", "pdf")
-            BOKO -> setOf("epub", "azw3", "mobi", "kfx")
+            CALIBRE -> setOf(EPUB, MOBI, AZW3, DOCX, ODT, FB2, HTML, HTMLZ, LRF, PDB, RTF, TXT, MD, MARKDOWN, PDF)
+            BOKO -> setOf(EPUB, AZW3, MOBI, KFX)
         }
 
     val outputFormats: List<String>
         get() = when (this) {
-            AUTO -> listOf("epub", "kfx", "mobi", "azw3", "docx", "fb2", "htmlz", "lrf", "md", "txt", "txtz")
-            CALIBRE -> listOf("epub", "mobi", "azw3", "docx", "fb2", "htmlz", "lrf", "txt", "txtz")
-            BOKO -> listOf("epub", "kfx", "azw3", "md")
+            AUTO -> (CALIBRE.outputFormats + BOKO.outputFormats).distinct()
+            CALIBRE -> listOf(EPUB, MOBI, AZW3, DOCX, FB2, HTMLZ, LRF, TXT, TXTZ)
+            BOKO -> listOf(EPUB, KFX, AZW3, MD)
         }
 }

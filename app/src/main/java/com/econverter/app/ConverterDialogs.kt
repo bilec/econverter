@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
+import com.econverter.app.BuildConfig
 
 private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
 
@@ -174,6 +175,7 @@ internal fun reportOnGitHub(context: Context, vm: ConverterViewModel) {
         appendLine("- **Output format:** ${vm.outputFormat}")
         appendLine("- **Backend:** ${vm.backend.label}")
         appendLine("- **Output profile:** ${vm.outputProfile}")
+        appendLine("- **Version:** ${BuildConfig.VERSION_NAME}")
         appendLine("- **Device:** ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("- **Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine("- **Extra args:** ${vm.extraArgs}")

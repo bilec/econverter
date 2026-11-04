@@ -13,6 +13,7 @@ labels: bug
 - **Output format:**
 - **Backend:**
 - **Output profile:**
+- **Version:**
 - **Device:**
 - **Android:**
 - **Extra args:** <!-- optional -->

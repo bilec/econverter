@@ -36,6 +36,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Install Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
       - name: Build debug APKs
         run: ./gradlew assembleDebug
         env:

@@ -45,6 +45,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: debug-apks-${{ github.run_id }}-${{ github.run_attempt }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
           retention-days: 14

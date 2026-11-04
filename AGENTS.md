@@ -19,6 +19,8 @@ Android e-book converter using Calibre (via Chaquopy) and native boko.
 	modules and `app/src/main/assets/chaquopy_native_loader.py` redirects wheel
 	extraction to symlinks targeting Android-installed libraries.
 	`app/build.gradle.kts` generates ABI-specific native libraries and path maps.
+	Per-ABI APKs are `abi` product flavors, not ABI splits, because Chaquopy
+	packages Python assets per variant; tests run on the `universal` flavor only.
 	When changing Chaquopy or native packaging, run
 	`pythonLoadsNativeLibrariesOutsideAppData` and conversion smoke tests;
 	GrapheneOS storage-DCL compatibility still requires device verification.
@@ -33,7 +35,7 @@ Android e-book converter using Calibre (via Chaquopy) and native boko.
 ./gradlew assembleDebug
 
 # Deploy debug build to connected device/emulator
-./gradlew installDebug
+./gradlew installUniversalDebug
 
 # Auto-format Kotlin source code with Spotless/ktlint
 ./gradlew spotlessApply

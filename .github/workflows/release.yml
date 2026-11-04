@@ -57,9 +57,9 @@ jobs:
 
       - name: Rename APKs with version tag
         run: |
-          for f in app/build/outputs/apk/release/app-*-release.apk; do
+          for f in app/build/outputs/apk/*/release/app-*-release.apk; do
             arch=$(basename "$f" | sed -E 's/app-(.*)-release\.apk/\1/')
-            mv "$f" "app/build/outputs/apk/release/econverter-${GITHUB_REF_NAME}-${arch}.apk"
+            mv "$f" "app/build/outputs/apk/econverter-${GITHUB_REF_NAME}-${arch}.apk"
           done
 
       - name: Clean up keystore
@@ -69,6 +69,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/econverter-*.apk
+          files: app/build/outputs/apk/econverter-*.apk
           generate_release_notes: true
           fail_on_unmatched_files: true

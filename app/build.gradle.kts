@@ -1,4 +1,5 @@
-import com.android.build.api.variant.FilterConfiguration
+import com.android.build.api.variant.DeviceTestBuilder
+import com.android.build.api.variant.HostTestBuilder
 import groovy.json.JsonOutput
 import java.io.InputStream
 import java.security.MessageDigest
@@ -38,18 +39,20 @@ android {
         versionCode = baseVersionCode
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        ndk {
-            abiFilters += abiVersionCodes.keys
-        }
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include(*abiVersionCodes.keys.toTypedArray())
-            isUniversalApk = true
+    // Flavors instead of ABI splits: Chaquopy assets for every ABI would land in each split APK.
+    flavorDimensions += "abi"
+    productFlavors {
+        create("universal") {
+            dimension = "abi"
+            ndk { abiFilters += abiVersionCodes.keys }
+        }
+        for (abi in abiVersionCodes.keys) {
+            create(abi) {
+                dimension = "abi"
+                ndk { abiFilters += abi }
+            }
         }
     }
 
@@ -66,7 +69,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.findByName("release") // ponytail: null when KEYSTORE_PATH unset → F-Droid signs instead
         }
     }
@@ -96,6 +101,14 @@ kotlin {
 }
 
 androidComponents {
+    beforeVariants { variant ->
+        // Per-ABI flavors differ only in packaged ABIs; testing universal covers them.
+        if (variant.flavorName != "universal") {
+            variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+            variant.deviceTests[DeviceTestBuilder.ANDROID_TEST_TYPE]?.enable = false
+        }
+    }
+
     onVariants { variant ->
         val taskSuffix = variant.name.replaceFirstChar(Char::uppercaseChar)
         val pythonAssets = listOf("misc", "requirements", "source").map {
@@ -159,14 +172,7 @@ androidComponents {
     }
 
     onVariants(selector().withBuildType("release")) { variant ->
-        variant.outputs.forEach { output ->
-            val abiVersionCode = output.filters
-                .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                ?.identifier
-                ?.let(abiVersionCodes::get)
-                ?: 0
-            output.versionCode.set(baseVersionCode * 100 + abiVersionCode)
-        }
+        variant.outputs.forEach { it.versionCode.set(baseVersionCode * 100 + (abiVersionCodes[variant.flavorName] ?: 0)) }
     }
 }
 

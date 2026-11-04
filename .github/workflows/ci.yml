@@ -97,7 +97,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: >-
-            ./gradlew :app:connectedDebugAndroidTest
+            ./gradlew :app:connectedUniversalDebugAndroidTest
             ${{ github.event_name != 'workflow_dispatch' && '-Pandroid.testInstrumentationRunnerArguments.annotation=com.econverter.app.ConversionSmokeTest' || '' }}
 
       - name: Upload emulator test reports

@@ -57,10 +57,12 @@ cleared or a compatible backend is chosen. Unsupported output choices reset to E
 Requires JDK 17+, Android SDK platform 37, and Python 3.11 (`python3.11` on PATH,
 or `CHAQUOPY_BUILD_PYTHON` set to its absolute path). Android Studio is optional.
 
-Install Android NDK 28.2.13676358 with `sdkmanager "ndk;28.2.13676358"` to strip
+Install Android NDK r30 (30.0.16248370), matching boko-bindings, with
+`sdkmanager "ndk;30.0.16248370"` to strip
 native library symbols; without it, Gradle packages the libraries unchanged.
 The version is pinned in [app/build.gradle.kts](app/build.gradle.kts).
-GitHub release, debug APK, and emulator jobs install this version explicitly.
+GitHub release, debug APK, and emulator jobs set up the Android SDK command-line
+tools before installing this version explicitly.
 
 | Command | Purpose |
 | --- | --- |
@@ -77,7 +79,7 @@ from the lib's `pypdfium2-<version>-android` release rather than PyPI.
 For F-Droid release work, initialize the pinned [CPython submodule](.gitmodules)
 with `git submodule update --init cpython`. Normal builds use installed Python.
 //TODO remove next 3 lines
-New F-Droid recipes must declare `ndk: r28c` to match the Gradle pin; preserve
+New F-Droid recipes must declare `ndk: r30` to match the Gradle pin; preserve
 historical recipes. Submit recipe updates to `fdroid/fdroiddata`; this
 repository's metadata is not applied upstream automatically.
 See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.

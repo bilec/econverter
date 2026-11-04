@@ -81,8 +81,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Android NDK
-        run: sdkmanager "ndk;28.2.13676358"
+        run: sdkmanager "ndk;30.0.16248370"
 
       - name: Enable KVM
         run: |

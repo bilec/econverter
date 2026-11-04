@@ -31,7 +31,7 @@ abstract class InstalledPythonLibraries : DefaultTask() {
 android {
     namespace = "com.econverter.app"
     compileSdk = 37
-    ndkVersion = "28.2.13676358"
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.econverter.app"

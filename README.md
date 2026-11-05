@@ -57,12 +57,8 @@ cleared or a compatible backend is chosen. Unsupported output choices reset to E
 Requires JDK 17+, Android SDK platform 37, and Python 3.11 (`python3.11` on PATH,
 or `CHAQUOPY_BUILD_PYTHON` set to its absolute path). Android Studio is optional.
 
-Install Android NDK r30 (30.0.16248370), matching boko-bindings, with
-`sdkmanager "ndk;30.0.16248370"` to strip
-native library symbols; without it, Gradle packages the libraries unchanged.
-The version is pinned in [app/build.gradle.kts](app/build.gradle.kts).
-GitHub release, debug APK, and emulator jobs set up the Android SDK command-line
-tools before installing this version explicitly.
+Install Android NDK r30 with `sdkmanager "ndk;30.0.16248370"` to strip native
+library symbols; without it, Gradle packages the libraries unchanged.
 
 | Command | Purpose |
 | --- | --- |
@@ -77,11 +73,10 @@ The PDFium version must match ebook-converter-lib's pin; its x86_64 wheel comes
 from the lib's `pypdfium2-<version>-android` release rather than PyPI.
 
 For F-Droid release work, initialize the pinned [CPython submodule](.gitmodules)
-with `git submodule update --init cpython`. Normal builds use installed Python.
-//TODO remove next 3 lines
-New F-Droid recipes must declare `ndk: r30` to match the Gradle pin; preserve
-historical recipes. Submit recipe updates to `fdroid/fdroiddata`; this
-repository's metadata is not applied upstream automatically.
+with `git submodule update --init --depth 1 cpython`. Normal builds use installed
+Python. Build the host interpreter with
+`./configure --with-ensurepip=no --disable-test-modules` to skip test-only
+extensions, then verify `ssl`, `zlib`, `bz2`, `lzma`, and `ctypes` imports.
 See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.
 
 ### CI Debug APKs

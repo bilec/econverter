@@ -82,7 +82,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android NDK
         run: sdkmanager "ndk;30.0.16248370"

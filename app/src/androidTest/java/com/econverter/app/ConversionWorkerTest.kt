@@ -3,6 +3,7 @@ package com.econverter.app
 import android.app.ActivityManager
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.os.Process
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -35,6 +36,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -628,6 +630,53 @@ class ConversionWorkerTest {
             fields.size == 6 && fields[1].contains('x') && fields[5].startsWith("$dataDirectory/")
         }
         assertTrue("Executable app files: $executableAppFiles", executableAppFiles.isEmpty())
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun truncatedArchivesStillProvideEveryNativeModule() {
+        if (!Python.isStarted()) Python.start(InstalledPythonPlatform(context))
+        val python = Python.getInstance()
+        val nativeDirectory = File(context.applicationInfo.nativeLibraryDir).canonicalPath
+        val abi = Build.SUPPORTED_ABIS.firstOrNull { candidate ->
+            runCatching { context.assets.open("chaquopy/stdlib-$candidate.imy").close() }.isSuccess
+        }
+        requireNotNull(abi) { "No Chaquopy stdlib archive for ${Build.SUPPORTED_ABIS.toList()}" }
+        // StripPythonNativeLibraries ships .so entries as zero-length placeholders: the importer
+        // finds modules by zip listing, while the loader symlinks to the installed library.
+        for (archive in listOf("chaquopy/stdlib-$abi.imy", "chaquopy/requirements-$abi.imy", "chaquopy/requirements-common.imy", "chaquopy/app.imy")) {
+            val file = File.createTempFile("archive", ".imy", context.cacheDir)
+            try {
+                try {
+                    context.assets.open(archive).use { input -> file.outputStream().use { input.copyTo(it) } }
+                } catch (_: IOException) {
+                    continue
+                }
+                val modules = mutableListOf<String>()
+                ZipFile(file).use { zip ->
+                    for (entry in zip.entries().asSequence()) {
+                        if (entry.isDirectory || !entry.name.contains(".so")) continue
+                        assertEquals("$archive must ship ${entry.name} as a zero-length placeholder", 0, entry.size)
+                        if (!entry.name.startsWith("chaquopy/")) modules += entry.name.substringBefore('.').replace('/', '.')
+                    }
+                }
+                assertTrue("$archive must contain native modules", modules.isNotEmpty() || archive.endsWith("app.imy"))
+                for (moduleName in modules) {
+                    val module = python.getModule(moduleName)
+                    val modulePath = File(module.get("__file__")!!.toString()).canonicalPath
+                    assertTrue("$moduleName must load from $nativeDirectory, got $modulePath", modulePath.startsWith("$nativeDirectory/"))
+                }
+            } finally {
+                file.delete()
+            }
+        }
+        // libpdfium loads via ctypes, not the import system.
+        val minimalPdf = (
+            "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
+                "2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n"
+            ).toByteArray()
+        val document = python.getModule("pypdfium2").callAttr("PdfDocument", minimalPdf)
+        assertEquals(0, document.callAttr("__len__").toInt())
     }
 
     @Test

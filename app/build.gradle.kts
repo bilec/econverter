@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.DeviceTestBuilder
 import com.android.build.api.variant.HostTestBuilder
 import groovy.json.JsonOutput
@@ -113,6 +114,8 @@ androidComponents {
 
     onVariants { variant ->
         val taskSuffix = variant.name.replaceFirstChar(Char::uppercaseChar)
+        // Extra ABI manifests would let the loader pick an ABI the APK has no libraries for.
+        val abis = variant.flavorName?.takeIf { it in abiVersionCodes }?.let(::listOf) ?: abiVersionCodes.keys
         val pythonAssets = listOf("misc", "requirements", "source").map {
             layout.buildDirectory.dir("python/assets/$it/${variant.name}/chaquopy")
         }
@@ -127,10 +130,10 @@ androidComponents {
                 val librariesDirectory = nativeLibraries.get().asFile
                 val assetsDirectory = nativeAssets.get().asFile
                 val pythonAssetDirectories = pythonAssets.map { it.get().asFile }
-                val nativeLibraryPattern = Regex("\\.so($|\\.)")
+                val nativeLibraryPattern = nativePythonLibraryPattern
                 librariesDirectory.deleteRecursively()
                 assetsDirectory.deleteRecursively()
-                for (abi in abiVersionCodes.keys) {
+                for (abi in abis) {
                     val mapping = sortedMapOf<String, String>()
                     fun bundleLibrary(relativePath: String, source: InputStream) {
                         require(!relativePath.startsWith('/') && relativePath.split('/').none { it == ".." })
@@ -171,6 +174,11 @@ androidComponents {
         }
         variant.sources.jniLibs?.addGeneratedSourceDirectory(bundleLibraries) { it.jniDirectory }
         variant.sources.assets?.addGeneratedSourceDirectory(bundleLibraries) { it.assetsDirectory }
+
+        val stripAssets = tasks.register<StripPythonNativeLibraries>("strip${taskSuffix}PythonNativeLibraries")
+        variant.artifacts.use(stripAssets)
+            .wiredWithDirectories(StripPythonNativeLibraries::inputDirectory, StripPythonNativeLibraries::outputDirectory)
+            .toTransform(SingleArtifact.ASSETS)
     }
 
     onVariants(selector().withBuildType("release")) { variant ->

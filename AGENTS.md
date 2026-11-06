@@ -18,7 +18,10 @@ Android e-book converter using Calibre (via Chaquopy) and native boko.
 - **Native Python Loading**: `InstalledPythonPlatform.kt` redirects bootstrap
 	modules and `app/src/main/assets/chaquopy_native_loader.py` redirects wheel
 	extraction to symlinks targeting Android-installed libraries.
-	`app/build.gradle.kts` generates ABI-specific native libraries and path maps.
+	`app/build.gradle.kts` generates ABI-specific native libraries and path maps,
+	and `buildSrc`'s `StripPythonNativeLibraries` replaces the duplicated `.so`
+	payload inside `.imy` archives with zero-length placeholders (the importer
+	only needs the zip listing; the loader never reads entry content).
 	Per-ABI APKs are `abi` product flavors, not ABI splits, because Chaquopy
 	packages Python assets per variant; tests run on the `universal` flavor only.
 	When changing Chaquopy or native packaging, run

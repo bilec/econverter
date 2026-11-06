@@ -25,22 +25,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: false
 
       - name: Set up Python 3.11
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -52,29 +52,34 @@ jobs:
         env:
           CHAQUOPY_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
 
+      - name: Run build logic tests
+        run: ./gradlew -p buildSrc test
+
   emulator:
     needs: check
-    runs-on: ubuntu-latest
+    # macOS runners are Apple Silicon: arm64 images get hardware acceleration and
+    # exercise the same native libraries (PyPI arm wheels) that physical phones run.
+    runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: true
 
       - name: Set up Python 3.11
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -87,20 +92,14 @@ jobs:
       - name: Install Android NDK
         run: sdkmanager "ndk;30.0.16248370"
 
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       - name: Run UI and conversion tests
         uses: reactivecircus/android-emulator-runner@v2
         env:
           CHAQUOPY_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
         with:
-          api-level: 34
+          api-level: 37
           target: google_apis
-          arch: x86_64
+          arch: arm64-v8a
           disable-animations: true
           script: >-
             ./gradlew :app:connectedUniversalDebugAndroidTest

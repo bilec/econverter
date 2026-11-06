@@ -1,4 +1,6 @@
-import com.android.build.api.variant.FilterConfiguration
+import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.DeviceTestBuilder
+import com.android.build.api.variant.HostTestBuilder
 import groovy.json.JsonOutput
 import java.io.InputStream
 import java.security.MessageDigest
@@ -30,6 +32,7 @@ abstract class InstalledPythonLibraries : DefaultTask() {
 android {
     namespace = "com.econverter.app"
     compileSdk = 37
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.econverter.app"
@@ -38,18 +41,20 @@ android {
         versionCode = baseVersionCode
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        ndk {
-            abiFilters += abiVersionCodes.keys
-        }
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include(*abiVersionCodes.keys.toTypedArray())
-            isUniversalApk = true
+    // Flavors instead of ABI splits: Chaquopy assets for every ABI would land in each split APK.
+    flavorDimensions += "abi"
+    productFlavors {
+        create("universal") {
+            dimension = "abi"
+            ndk { abiFilters += abiVersionCodes.keys }
+        }
+        for (abi in abiVersionCodes.keys) {
+            create(abi) {
+                dimension = "abi"
+                ndk { abiFilters += abi }
+            }
         }
     }
 
@@ -66,7 +71,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.findByName("release") // ponytail: null when KEYSTORE_PATH unset → F-Droid signs instead
         }
     }
@@ -78,6 +85,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -96,8 +104,18 @@ kotlin {
 }
 
 androidComponents {
+    beforeVariants { variant ->
+        // Per-ABI flavors differ only in packaged ABIs; testing universal covers them.
+        if (variant.flavorName != "universal") {
+            variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+            variant.deviceTests[DeviceTestBuilder.ANDROID_TEST_TYPE]?.enable = false
+        }
+    }
+
     onVariants { variant ->
         val taskSuffix = variant.name.replaceFirstChar(Char::uppercaseChar)
+        // Extra ABI manifests would let the loader pick an ABI the APK has no libraries for.
+        val abis = variant.flavorName?.takeIf { it in abiVersionCodes }?.let(::listOf) ?: abiVersionCodes.keys
         val pythonAssets = listOf("misc", "requirements", "source").map {
             layout.buildDirectory.dir("python/assets/$it/${variant.name}/chaquopy")
         }
@@ -112,10 +130,10 @@ androidComponents {
                 val librariesDirectory = nativeLibraries.get().asFile
                 val assetsDirectory = nativeAssets.get().asFile
                 val pythonAssetDirectories = pythonAssets.map { it.get().asFile }
-                val nativeLibraryPattern = Regex("\\.so($|\\.)")
+                val nativeLibraryPattern = nativePythonLibraryPattern
                 librariesDirectory.deleteRecursively()
                 assetsDirectory.deleteRecursively()
-                for (abi in abiVersionCodes.keys) {
+                for (abi in abis) {
                     val mapping = sortedMapOf<String, String>()
                     fun bundleLibrary(relativePath: String, source: InputStream) {
                         require(!relativePath.startsWith('/') && relativePath.split('/').none { it == ".." })
@@ -156,17 +174,15 @@ androidComponents {
         }
         variant.sources.jniLibs?.addGeneratedSourceDirectory(bundleLibraries) { it.jniDirectory }
         variant.sources.assets?.addGeneratedSourceDirectory(bundleLibraries) { it.assetsDirectory }
+
+        val stripAssets = tasks.register<StripPythonNativeLibraries>("strip${taskSuffix}PythonNativeLibraries")
+        variant.artifacts.use(stripAssets)
+            .wiredWithDirectories(StripPythonNativeLibraries::inputDirectory, StripPythonNativeLibraries::outputDirectory)
+            .toTransform(SingleArtifact.ASSETS)
     }
 
     onVariants(selector().withBuildType("release")) { variant ->
-        variant.outputs.forEach { output ->
-            val abiVersionCode = output.filters
-                .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                ?.identifier
-                ?.let(abiVersionCodes::get)
-                ?: 0
-            output.versionCode.set(baseVersionCode * 100 + abiVersionCode)
-        }
+        variant.outputs.forEach { it.versionCode.set(baseVersionCode * 100 + (abiVersionCodes[variant.flavorName] ?: 0)) }
     }
 }
 

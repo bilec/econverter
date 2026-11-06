@@ -200,6 +200,7 @@ class ConverterViewModelTest {
                     "- **Output format:** ${vm.outputFormat}",
                     "- **Backend:** ${vm.backend.label}",
                     "- **Output profile:** ${vm.outputProfile}",
+                    "- **Version:** ${BuildConfig.VERSION_NAME}",
                     "- **Device:** ${Build.MANUFACTURER} ${Build.MODEL}",
                     "- **Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                     "- **Extra args:** $extraArgs",

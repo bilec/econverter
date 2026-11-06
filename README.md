@@ -57,12 +57,15 @@ cleared or a compatible backend is chosen. Unsupported output choices reset to E
 Requires JDK 17+, Android SDK platform 37, and Python 3.11 (`python3.11` on PATH,
 or `CHAQUOPY_BUILD_PYTHON` set to its absolute path). Android Studio is optional.
 
+Install Android NDK r30 with `sdkmanager "ndk;30.0.16248370"` to strip native
+library symbols; without it, Gradle packages the libraries unchanged.
+
 | Command | Purpose |
 | --- | --- |
-| `./gradlew assembleDebug` | Build the debug APK. |
-| `./gradlew installDebug` | Install on a connected device or emulator. |
+| `./gradlew assembleDebug` | Build debug APKs for every ABI flavor (`armeabi-v7a`, `x86_64`, `arm64-v8a`, `universal`). |
+| `./gradlew installUniversalDebug` | Install on a connected device or emulator. |
 | `./gradlew check` | Run lint, formatting checks, and unit tests. |
-| `./gradlew :app:connectedDebugAndroidTest` | Run device/emulator tests. |
+| `./gradlew :app:connectedUniversalDebugAndroidTest` | Run device/emulator tests. |
 
 Engine versions are pinned in [gradle.properties](gradle.properties) by
 `EBOOK_CONVERTER_LIB_VERSION`, `PYPDFIUM2_VERSION`, and `BOKO_ANDROID_VERSION`.
@@ -70,7 +73,10 @@ The PDFium version must match ebook-converter-lib's pin; its x86_64 wheel comes
 from the lib's `pypdfium2-<version>-android` release rather than PyPI.
 
 For F-Droid release work, initialize the pinned [CPython submodule](.gitmodules)
-with `git submodule update --init cpython`. Normal builds use installed Python.
+with `git submodule update --init --depth 1 cpython`. Normal builds use installed
+Python. Build the host interpreter with
+`./configure --with-ensurepip=no --disable-test-modules` to skip test-only
+extensions, then verify `ssl`, `zlib`, `bz2`, `lzma`, and `ctypes` imports.
 See [CODEBASE_MAP.md](CODEBASE_MAP.md) for the architecture.
 
 ### CI Debug APKs

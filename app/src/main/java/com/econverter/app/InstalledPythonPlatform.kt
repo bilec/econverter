@@ -1,6 +1,7 @@
 package com.econverter.app
 
 import android.content.Context
+import android.os.Build
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -8,17 +9,31 @@ import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 
 internal class InstalledPythonPlatform(private val context: Context) : AndroidPlatform(context) {
     private val libraryDirectory = File(context.applicationInfo.nativeLibraryDir)
     private val assetDirectory = File(context.filesDir, "chaquopy")
-    private val manifest = context.assets.open("chaquopy/native-libraries/$ABI.json").bufferedReader().use { it.readText() }
+
+    private val abi = Build.SUPPORTED_ABIS.first { candidate ->
+        try {
+            context.assets.open("chaquopy/native-libraries/$candidate.json").close()
+            true
+        } catch (_: IOException) {
+            false
+        }
+    }
+
+    private val manifest = context.assets
+        .open("chaquopy/native-libraries/$abi.json")
+        .bufferedReader()
+        .use { it.readText() }
 
     override fun getPath(): String {
         val path = super.getPath()
         val mapping = JSONObject(manifest)
         for (relativePath in mapping.keys()) {
-            if (!relativePath.startsWith("bootstrap-native/$ABI/")) continue
+            if (!relativePath.startsWith("bootstrap-native/$abi/")) continue
             val libraryName = mapping.getString(relativePath)
             require(!relativePath.startsWith('/') && relativePath.split('/').none { it == ".." })
             require(libraryName == File(libraryName).name)
@@ -40,7 +55,11 @@ internal class InstalledPythonPlatform(private val context: Context) : AndroidPl
         val globals = python.getModule("builtins").callAttr("dict")
         val loader = context.assets.open("chaquopy_native_loader.py").bufferedReader().use { it.readText() }
         python.getModule("builtins").callAttr("exec", loader, globals)
-        globals.callAttr("__getitem__", "install").call(libraryDirectory.canonicalPath, assetDirectory.canonicalPath, python.getModule("json").callAttr("loads", manifest))
+        globals.callAttr("__getitem__", "install").call(
+            libraryDirectory.canonicalPath,
+            assetDirectory.canonicalPath,
+            python.getModule("json").callAttr("loads", manifest),
+        )
         super.onStart(python)
     }
 }

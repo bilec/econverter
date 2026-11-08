@@ -14,27 +14,33 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: true
 
       - name: Set up Python 3.11
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;30.0.16248370"
 
       - name: Build debug APKs
         run: ./gradlew assembleDebug
@@ -45,6 +51,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: debug-apks-${{ github.run_id }}-${{ github.run_attempt }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
           retention-days: 14

@@ -170,12 +170,12 @@ class ConverterViewModel : ViewModel() {
         if (isConverting || isSaving || pendingSave || bookMetadata != null) return
         status = StatusMessage(R.string.loading_selection)
         viewModelScope.launch(Dispatchers.IO) {
-            val pairs = newUris.map { uri -> uri to getFileName(context, uri) }
+            val pairs = newUris.distinct().map { uri -> uri to runCatching { getFileName(context, uri) }.getOrDefault("") }
 
             withContext(Dispatchers.Main) {
                 if (isConverting || isSaving || pendingSave || bookMetadata != null) return@withContext
-                val validPairs = pairs.filter { isInputSupported(it.second) }
-                val unsupportedCount = newUris.size - validPairs.size
+                val validPairs = pairs.filter { isInputSupported(it.second) && it.first !in inputUris }
+                val unsupportedCount = pairs.count { !isInputSupported(it.second) }
                 if (validPairs.isNotEmpty()) {
                     inputUris = inputUris + validPairs.map { it.first }
                     inputFileNames = inputFileNames + validPairs.map { it.second }

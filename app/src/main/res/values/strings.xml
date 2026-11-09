@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_results">Open results</string>
+    <string name="share_busy">Finish or cancel the current operation before sharing more books.</string>
+    <string name="conversion_notifications">Conversions</string>
     <string name="status_error">Error: %1$s</string>
     <string name="status_reading_metadata">Reading metadata...</string>
     <string name="status_updating_metadata">Updating metadata...</string>

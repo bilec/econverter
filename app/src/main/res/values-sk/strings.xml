@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_results">Otvoriť výsledky</string>
+    <string name="share_busy">Pred zdieľaním ďalších kníh dokončite alebo zrušte aktuálnu operáciu.</string>
+    <string name="conversion_notifications">Konverzie</string>
     <string name="status_error">Chyba: %1$s</string>
     <string name="status_reading_metadata">Načítanie metadát...</string>
     <string name="status_updating_metadata">Aktualizácia metadát...</string>

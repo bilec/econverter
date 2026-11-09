@@ -1,5 +1,9 @@
 package com.econverter.app
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentName
 import android.content.Context
@@ -7,6 +11,8 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
 import android.os.*
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.chaquo.python.Kwarg
 import com.chaquo.python.Python
 import com.econverter.app.FileExtensions.AZW3
@@ -97,6 +103,7 @@ class ConversionWorker(
         }
         return suspendCancellableCoroutine { continuation ->
             var bound = false
+            var foregroundStarted = false
             var linked = false
             var binder: IBinder? = null
             lateinit var connection: ServiceConnection
@@ -107,6 +114,7 @@ class ConversionWorker(
                 completed = true
                 if (linked) binder?.unlinkToDeath(death, 0)
                 if (bound) context.unbindService(connection)
+                if (foregroundStarted) context.stopService(Intent(context, ConversionService::class.java))
                 remote = null
                 if (cancelled || !continuation.isActive || result.files.isEmpty()) {
                     directory.deleteRecursively()
@@ -120,7 +128,11 @@ class ConversionWorker(
             val reply = Messenger(
                 Handler(Looper.getMainLooper()) { message ->
                     when (message.what) {
-                        ConversionService.PROGRESS -> if (!cancelled) onProgress(StatusMessage.fromBundle(message.data))
+                        ConversionService.PROGRESS -> if (!cancelled) {
+                            val status = StatusMessage.fromBundle(message.data)
+                            if (status.resourceId == R.string.status_cancelled) cancel()
+                            onProgress(status)
+                        }
 
                         ConversionService.DONE -> finish(
                             ConversionResult(
@@ -174,6 +186,10 @@ class ConversionWorker(
             }
             continuation.invokeOnCancellation { cancel() }
             try {
+                if (operation == ConversionService.RUN) {
+                    ContextCompat.startForegroundService(context, Intent(context, ConversionService::class.java))
+                    foregroundStarted = true
+                }
                 bound = context.bindService(Intent(context, ConversionService::class.java), connection, Context.BIND_AUTO_CREATE)
                 if (!bound) finish(ConversionResult(StatusMessage(R.string.status_worker_bind_failed, isError = true)))
             } catch (error: Exception) {
@@ -191,9 +207,15 @@ class ConversionService : Service() {
         const val DONE = 4
         const val READ_METADATA = 5
         const val UPDATE_METADATA = 6
+        private const val CANCEL_ACTION = "com.econverter.app.CANCEL_CONVERSION"
+        private const val CHANNEL_ID = "conversions"
+        private const val PROGRESS_NOTIFICATION_ID = 1
+        private const val RESULT_NOTIFICATION_ID = 2
     }
 
     private var started = false
+    private var foregroundActive = false
+    private var activeReply: Messenger? = null
     private val messenger = Messenger(
         Handler(Looper.getMainLooper()) { message ->
             when (message.what) {
@@ -203,6 +225,7 @@ class ConversionService : Service() {
                     started = true
                     val data = message.data
                     val reply = message.replyTo
+                    activeReply = reply
                     val operation = message.what
                     Thread {
                         val result = try {
@@ -210,6 +233,7 @@ class ConversionService : Service() {
                         } catch (error: Exception) {
                             ConversionResult(StatusMessage(R.string.status_error, listOf(error.message.orEmpty()), isError = true))
                         }
+                        finishForegroundConversion(result.status)
                         send(
                             reply,
                             DONE,
@@ -227,12 +251,77 @@ class ConversionService : Service() {
 
     override fun onBind(intent: Intent): IBinder = messenger.binder
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == CANCEL_ACTION) {
+            activeReply?.let {
+                send(it, PROGRESS, StatusMessage(R.string.status_cancelled).toBundle())
+                return START_NOT_STICKY
+            }
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            Process.killProcess(Process.myPid())
+            return START_NOT_STICKY
+        }
+        val manager = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, getString(R.string.conversion_notifications), NotificationManager.IMPORTANCE_LOW))
+        }
+        manager.cancel(RESULT_NOTIFICATION_ID)
+        startForeground(PROGRESS_NOTIFICATION_ID, conversionNotification(StatusMessage(R.string.status_converting), true))
+        foregroundActive = true
+        return START_NOT_STICKY
+    }
+
+    internal fun updateForegroundProgress(status: StatusMessage) {
+        val manager = getSystemService(NotificationManager::class.java)
+        if (foregroundActive && manager.areNotificationsEnabled()) manager.notify(PROGRESS_NOTIFICATION_ID, conversionNotification(status, true))
+    }
+
+    internal fun finishForegroundConversion(status: StatusMessage) {
+        if (!foregroundActive) return
+        foregroundActive = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        val manager = getSystemService(NotificationManager::class.java)
+        if (manager.areNotificationsEnabled()) manager.notify(RESULT_NOTIFICATION_ID, conversionNotification(status, false))
+        stopSelf()
+    }
+
+    private fun conversionNotification(status: StatusMessage, ongoing: Boolean): Notification {
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(status.text(this).lineSequence().first().take(200))
+            .setContentIntent(open)
+            .setOngoing(ongoing)
+            .setAutoCancel(!ongoing)
+            .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .apply {
+                if (ongoing) {
+                    setProgress(100, ((status.progress ?: 0f) * 100).toInt(), status.progress == null)
+                    val cancel = PendingIntent.getService(this@ConversionService, 0, Intent(this@ConversionService, ConversionService::class.java).setAction(CANCEL_ACTION), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.cancel), cancel)
+                } else if (status.isSuccess) {
+                    addAction(android.R.drawable.ic_menu_view, getString(R.string.open_results), open)
+                }
+            }.build()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        Process.killProcess(Process.myPid())
+    }
+
     override fun onDestroy() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
         Process.killProcess(Process.myPid())
     }
 
     private fun send(reply: Messenger, code: Int, data: Bundle) {
+        if (code == PROGRESS) updateForegroundProgress(StatusMessage.fromBundle(data))
         try {
             reply.send(Message.obtain(null, code).apply { this.data = data })
         } catch (_: RemoteException) {

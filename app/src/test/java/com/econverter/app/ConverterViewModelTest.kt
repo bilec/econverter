@@ -36,6 +36,69 @@ import java.util.UUID
 @Config(sdk = [28])
 class ConverterViewModelTest {
     @Test
+    @Config(sdk = [28, 34])
+    fun conversionServiceStartsNonStickyForegroundNotificationWithCancelAndReturnActions() {
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val result = service.onStartCommand(Intent(service, ConversionService::class.java), 0, 1)
+        assertEquals(android.app.Service.START_NOT_STICKY, result)
+        val notification = shadowOf(service).lastForegroundNotification
+        assertNotNull(notification)
+        assertNotNull(notification.contentIntent)
+        assertEquals("Cancel", notification.actions.single().title.toString())
+        assertEquals("com.econverter.app.CANCEL_CONVERSION", shadowOf(notification.actions.single().actionIntent).savedIntent.action)
+        assertEquals("conversions", notification.channelId)
+        val manager = service.getSystemService(android.app.NotificationManager::class.java)
+        service.updateForegroundProgress(StatusMessage(R.string.status_converting_progress, listOf("1", "2"), progress = 0.5f))
+        assertEquals(50, shadowOf(manager).allNotifications.single().extras.getInt(android.app.Notification.EXTRA_PROGRESS))
+        service.finishForegroundConversion(StatusMessage(R.string.status_done, isSuccess = true))
+        val completed = shadowOf(manager).allNotifications.single()
+        assertEquals(service.getString(R.string.status_done), completed.extras.getString(android.app.Notification.EXTRA_TEXT))
+        assertEquals(0, completed.flags and android.app.Notification.FLAG_ONGOING_EVENT)
+        assertEquals("Open results", completed.actions.single().title.toString())
+        assertEquals(completed.contentIntent, completed.actions.single().actionIntent)
+        completed.actions.single().actionIntent.send()
+        assertEquals(MainActivity::class.java.name, shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity.component?.className)
+        service.onStartCommand(Intent(), 0, 2)
+        service.finishForegroundConversion(StatusMessage(R.string.status_error, listOf("Conversion failed"), isError = true))
+        assertTrue(shadowOf(manager).allNotifications.single().actions.isNullOrEmpty())
+        controller.destroy()
+        assertTrue(shadowOf(service).isForegroundStopped)
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun conversionServiceStillPromotesWhenNotificationsAreDenied() {
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val manager = service.getSystemService(android.app.NotificationManager::class.java)
+        shadowOf(manager).setNotificationsEnabled(false)
+        assertEquals(android.app.Service.START_NOT_STICKY, service.onStartCommand(Intent(), 0, 1))
+        assertNotNull(shadowOf(service).lastForegroundNotification)
+        service.updateForegroundProgress(StatusMessage(R.string.status_converting))
+        service.finishForegroundConversion(StatusMessage(R.string.status_done))
+        assertTrue(shadowOf(service).isForegroundStopped)
+        controller.destroy()
+    }
+
+    @Test
+    fun sharedBooksAcceptContentStreamsAndClipDataWithoutDuplicates() {
+        val first = Uri.parse("content://books/one")
+        val second = Uri.parse("content://books/two")
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(first, first, Uri.parse("file:///private/book.epub")))
+            clipData = android.content.ClipData.newRawUri("books", first).apply {
+                addItem(android.content.ClipData.Item(second))
+            }
+        }
+        assertEquals(listOf(first, second), intent.sharedBookUris())
+        assertEquals(listOf(first), Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, first).sharedBookUris())
+        assertTrue(Intent(Intent.ACTION_VIEW, first).sharedBookUris().isEmpty())
+        assertTrue(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "https://example.com/book.epub").sharedBookUris().isEmpty())
+        assertTrue(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, "not a URI").sharedBookUris().isEmpty())
+    }
+
+    @Test
     fun metadataEditingRequiresOneSupportedBookAndAnIdleApp() {
         val vm = ConverterViewModel()
         assertFalse(vm.canEditMetadata)

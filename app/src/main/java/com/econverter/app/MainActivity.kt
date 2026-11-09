@@ -1,7 +1,9 @@
 package com.econverter.app
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -41,6 +43,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.IntentCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import java.text.DateFormat
@@ -50,6 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) acceptSharedBooks(intent)
         setContent {
             ConverterTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -57,6 +62,39 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        acceptSharedBooks(intent)
+    }
+
+    private fun acceptSharedBooks(intent: Intent) {
+        val uris = intent.sharedBookUris()
+        if (uris.isEmpty()) return
+        val vm = ViewModelProvider(this)[ConverterViewModel::class.java]
+        if (vm.isConverting || vm.isSaving || vm.pendingSave || vm.bookMetadata != null) {
+            Toast.makeText(this, R.string.share_busy, Toast.LENGTH_LONG).show()
+            return
+        }
+        vm.loadBackendPreference(this)
+        vm.addSelectedUris(this, uris)
+    }
+}
+
+internal fun Intent.sharedBookUris(): List<Uri> {
+    if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return emptyList()
+    return try {
+        val streams = if (action == Intent.ACTION_SEND) {
+            listOfNotNull(IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java))
+        } else {
+            IntentCompat.getParcelableArrayListExtra(this, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+        }
+        (streams + (0 until (clipData?.itemCount ?: 0)).mapNotNull { clipData?.getItemAt(it)?.uri })
+            .filter { it.scheme == "content" }.distinct()
+    } catch (_: RuntimeException) {
+        emptyList()
     }
 }
 
@@ -94,6 +132,10 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         if (uri != null) {
             vm.saveToUri(context, uri)
         }
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.convert(context)
     }
 
     var showAbout by remember { mutableStateOf(false) }
@@ -168,7 +210,15 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
                             }
                         } else {
                             Button(
-                                onClick = { if (vm.isConverting) vm.cancelConversion() else vm.convert(context) },
+                                onClick = {
+                                    if (vm.isConverting) {
+                                        vm.cancelConversion()
+                                    } else if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        vm.convert(context)
+                                    }
+                                },
                                 enabled = (vm.isConverting || vm.canConvert) && !vm.isCancelling && !vm.isSaving && !vm.pendingSave,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                                 shape = RoundedCornerShape(8.dp),

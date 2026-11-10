@@ -945,6 +945,65 @@ class ConversionWorkerTest {
         }
     }
 
+    @Test
+    @ConversionSmokeTest
+    fun notificationCancelDiscardsCompletedOutputsAndAllowsAnotherRun() = runBlocking<Unit> {
+        if (Build.VERSION.SDK_INT >= 33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val directory = File(context.filesDir, "notification-cancel-${UUID.randomUUID()}").apply { mkdirs() }
+        val existingScratch = engineScratchDirectories()
+        try {
+            val source = makeEpub(File(directory, "source.epub"))
+            val largeSource = makeEpub(File(directory, "large.epub"), 20_000)
+            val originals = listOf(source, largeSource).associateWith { it.readBytes() }
+            val runDirectory = File(directory, "run")
+            val manager = context.getSystemService(android.app.NotificationManager::class.java)
+            val processes = context.getSystemService(ActivityManager::class.java)
+            var cancelledPid: Int? = null
+            var cancellationReceived = false
+            val worker = ConversionWorker(
+                context,
+                runDirectory,
+                listOf(Uri.fromFile(source), Uri.fromFile(largeSource)),
+                listOf(source.name, largeSource.name),
+                "epub",
+                emptyList(),
+            ) { progress ->
+                if (progress.resourceId == R.string.status_cancelled) cancellationReceived = true
+                if (progress.resourceId == R.string.status_converting_progress && progress.args == listOf("1", "2") && cancelledPid == null) {
+                    assertTrue("First output must exist before Cancel", File(runDirectory, "0/source.epub").isFile)
+                    val process = processes.runningAppProcesses.single { it.processName == "${context.packageName}:conversion" }
+                    assertNotEquals(Process.myPid(), process.pid)
+                    cancelledPid = process.pid
+                    val notification = manager.activeNotifications.single { it.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0 }.notification
+                    val cancel = notification.actions.single()
+                    assertEquals(context.getString(R.string.cancel), cancel.title.toString())
+                    cancel.actionIntent.send()
+                }
+            }
+
+            val result = withTimeout(90_000) { withContext(Dispatchers.Main) { worker.run() } }
+
+            assertNotNull("Notification Cancel must have been sent", cancelledPid)
+            assertTrue("Client must receive cancellation before worker death", cancellationReceived)
+            assertEquals(StatusMessage(R.string.status_cancelled), result.status)
+            assertTrue(result.files.isEmpty())
+            assertFalse(runDirectory.exists())
+            originals.forEach { (file, bytes) -> assertArrayEquals("Original must be unchanged: ${file.name}", bytes, file.readBytes()) }
+            assertEquals(emptySet<String>(), engineScratchDirectories() - existingScratch)
+            composeRule.waitUntil(10_000) { processes.runningAppProcesses.none { it.pid == cancelledPid } }
+            composeRule.waitUntil(10_000) { manager.activeNotifications.none { it.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0 } }
+
+            val next = ConversionWorker(context, File(directory, "next"), listOf(Uri.fromFile(source)), listOf(source.name), "epub", emptyList())
+            val nextResult = withTimeout(90_000) { withContext(Dispatchers.Main) { next.run() } }
+            assertTrue(nextResult.status.text(context), nextResult.status.isSuccess)
+            assertTrue(nextResult.files.single().isFile)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun engineScratchDirectories(): Set<String> = context.cacheDir.walkTopDown()
         .filter { it.isDirectory && it.name.contains("_tmp_") }
         .map { it.absolutePath }.toSet()

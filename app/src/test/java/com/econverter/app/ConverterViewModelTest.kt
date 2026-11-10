@@ -14,7 +14,9 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -28,9 +30,13 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowProcess
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -64,6 +70,72 @@ class ConverterViewModelTest {
         assertTrue(shadowOf(manager).allNotifications.single().actions.isNullOrEmpty())
         controller.destroy()
         assertTrue(shadowOf(service).isForegroundStopped)
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    fun notificationCancelWaitsForWorkerDisconnectionBeforeDeletingRun() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val directory = File(context.cacheDir, "notification-cancel-${UUID.randomUUID()}").apply { mkdirs() }
+        val original = File(context.cacheDir, "original-${UUID.randomUUID()}.epub").apply { writeText("original") }
+        val partial = File(directory, "partial.epub").apply { writeText("unfinished") }
+        val reading = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val conversionThread = AtomicReference<Thread>()
+        val uri = Uri.parse("content://books/notification-cancel")
+        shadowOf(context.contentResolver).registerInputStream(
+            uri,
+            object : java.io.InputStream() {
+                override fun read(): Int {
+                    conversionThread.set(Thread.currentThread())
+                    reading.countDown()
+                    check(release.await(10, TimeUnit.SECONDS))
+                    throw java.io.IOException("Conversion interrupted")
+                }
+            },
+        )
+        shadowOf(context).setComponentNameAndServiceForBindService(
+            android.content.ComponentName(context, ConversionService::class.java),
+            service.onBind(Intent()),
+        )
+        try {
+            val statuses = mutableListOf<StatusMessage>()
+            val worker = ConversionWorker(context, directory, listOf(uri), listOf(original.name), "epub", emptyList(), onProgress = statuses::add)
+            val result = async(start = CoroutineStart.UNDISPATCHED) { worker.run() }
+            service.onStartCommand(requireNotNull(shadowOf(context).nextStartedService), 0, 1)
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue("Conversion must be reading before Cancel", reading.await(5, TimeUnit.SECONDS))
+            val connection = shadowOf(context).boundServiceConnections.single()
+            shadowOf(context).clearStartedServices()
+
+            shadowOf(service).lastForegroundNotification.actions.single().actionIntent.send()
+            val cancelIntent = requireNotNull(shadowOf(context).nextStartedService)
+            assertEquals("com.econverter.app.CANCEL_CONVERSION", cancelIntent.action)
+            service.onStartCommand(cancelIntent, 0, 2)
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+
+            assertEquals(StatusMessage(R.string.status_cancelled), statuses.last())
+            assertTrue("Client must acknowledge Cancel by terminating the worker", ShadowProcess.wasKilled(android.os.Process.myPid()))
+            assertFalse(result.isCompleted)
+            assertTrue("Files must remain until worker disconnection", partial.exists())
+
+            connection.onServiceDisconnected(android.content.ComponentName(context, ConversionService::class.java))
+            val cancelled = result.await()
+            assertEquals(StatusMessage(R.string.status_cancelled), cancelled.status)
+            assertTrue(cancelled.files.isEmpty())
+            assertFalse(directory.exists())
+            assertEquals("original", original.readText())
+            assertTrue(shadowOf(context).boundServiceConnections.isEmpty())
+            assertEquals(ConversionService::class.java.name, shadowOf(context).nextStoppedService.component?.className)
+        } finally {
+            release.countDown()
+            conversionThread.get()?.join(5_000)
+            controller.destroy()
+            directory.deleteRecursively()
+            original.delete()
+        }
     }
 
     @Test

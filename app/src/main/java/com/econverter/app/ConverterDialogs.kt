@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.econverter.app.BuildConfig
 
@@ -154,16 +155,24 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
         return
     }
     AlertDialog(
+        modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 400.dp).fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.about_title)) },
+        title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },
         text = {
             CenterDialogWindow()
-            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.version_format, versionName))
                 Text(stringResource(R.string.author))
                 Text(stringResource(R.string.license))
-                TextButton(onClick = { showLibraries = true }) {
-                    Text(stringResource(R.string.third_party_libraries))
+                HorizontalDivider(Modifier.padding(top = 8.dp))
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(role = Role.Button, onClick = { showLibraries = true }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.third_party_libraries), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
             }
         },
@@ -187,8 +196,10 @@ private fun ThirdPartyLibrariesDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val viewLicense = stringResource(R.string.view_license)
     AlertDialog(
+        modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 400.dp).fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.third_party_libraries)) },
+        title = { Text(stringResource(R.string.third_party_libraries), style = MaterialTheme.typography.titleLarge) },
         text = {
             CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {

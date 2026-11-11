@@ -380,15 +380,19 @@ class ConversionWorkerTest {
 
     @Test
     @ConversionSmokeTest
-    fun aboutDialogIsVerticallyCentered() {
+    fun aboutAndLibraryDialogsAreCentered() {
         composeRule.onNodeWithContentDescription("About").performClick()
         composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        automation.waitForIdle(500, 5_000)
-        val bounds = Rect()
-        automation.rootInActiveWindow.getBoundsInScreen(bounds)
-        val height = context.resources.displayMetrics.heightPixels
-        assertTrue("Dialog should be near screen center: $bounds", bounds.centerY() in (height * 0.4).toInt()..(height * 0.6).toInt())
+        for (libraries in listOf(false, true)) {
+            if (libraries) composeRule.onNodeWithText("Third-party libraries").performClick()
+            automation.waitForIdle(500, 5_000)
+            val bounds = Rect()
+            automation.rootInActiveWindow.getBoundsInScreen(bounds)
+            val metrics = context.resources.displayMetrics
+            assertTrue("Dialog should be vertically centered: $bounds", bounds.centerY() in (metrics.heightPixels * 0.45).toInt()..(metrics.heightPixels * 0.55).toInt())
+            assertTrue("Dialog should be horizontally centered: $bounds", bounds.centerX() in (metrics.widthPixels * 0.45).toInt()..(metrics.widthPixels * 0.55).toInt())
+        }
     }
 
     @Test

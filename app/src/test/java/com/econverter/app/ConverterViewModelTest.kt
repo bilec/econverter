@@ -3,20 +3,31 @@ package com.econverter.app
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ProviderInfo
 import android.content.res.Configuration
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.BadParcelableException
 import android.os.Build
 import android.os.CancellationSignal
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import android.os.Parcelable
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
+import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -28,13 +39,271 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowProcess
+import org.robolectric.shadows.ShadowToast
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ConverterViewModelTest {
+    @Before
+    fun configureFileProvider() {
+        val context = RuntimeEnvironment.getApplication()
+        val authority = "${context.packageName}.fileprovider"
+        val provider = FileProvider()
+        provider.attachInfo(context, requireNotNull(context.packageManager.resolveContentProvider(authority, PackageManager.GET_META_DATA)))
+        ShadowContentResolver.registerProviderInternal(authority, provider)
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    fun conversionServiceStartsNonStickyForegroundNotificationWithCancelAndReturnActions() {
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val result = service.onStartCommand(Intent(service, ConversionService::class.java), 0, 1)
+        assertEquals(android.app.Service.START_NOT_STICKY, result)
+        val notification = shadowOf(service).lastForegroundNotification
+        assertNotNull(notification)
+        assertNotNull(notification.contentIntent)
+        assertEquals("Cancel", notification.actions.single().title.toString())
+        assertEquals("com.econverter.app.CANCEL_CONVERSION", shadowOf(notification.actions.single().actionIntent).savedIntent.action)
+        assertEquals("conversions", notification.channelId)
+        val manager = service.getSystemService(android.app.NotificationManager::class.java)
+        service.updateForegroundProgress(StatusMessage(R.string.status_converting_progress, listOf("1", "2"), progress = 0.5f))
+        assertEquals(50, shadowOf(manager).allNotifications.single().extras.getInt(android.app.Notification.EXTRA_PROGRESS))
+        service.finishForegroundConversion(StatusMessage(R.string.status_done, isSuccess = true))
+        val completed = shadowOf(manager).allNotifications.single()
+        assertEquals(service.getString(R.string.status_done), completed.extras.getString(android.app.Notification.EXTRA_TEXT))
+        assertEquals(0, completed.flags and android.app.Notification.FLAG_ONGOING_EVENT)
+        assertEquals("Open results", completed.actions.single().title.toString())
+        assertEquals(completed.contentIntent, completed.actions.single().actionIntent)
+        completed.actions.single().actionIntent.send()
+        assertEquals(MainActivity::class.java.name, shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity.component?.className)
+        service.onStartCommand(Intent(), 0, 2)
+        service.finishForegroundConversion(StatusMessage(R.string.status_error, listOf("Conversion failed"), isError = true))
+        assertTrue(shadowOf(manager).allNotifications.single().actions.isNullOrEmpty())
+        controller.destroy()
+        assertTrue(shadowOf(service).isForegroundStopped)
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    fun notificationCancelWaitsForWorkerDisconnectionBeforeDeletingRun() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val directory = File(context.cacheDir, "notification-cancel-${UUID.randomUUID()}").apply { mkdirs() }
+        val original = File(context.cacheDir, "original-${UUID.randomUUID()}.epub").apply { writeText("original") }
+        val partial = File(directory, "partial.epub").apply { writeText("unfinished") }
+        val reading = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val conversionThread = AtomicReference<Thread>()
+        val uri = Uri.parse("content://books/notification-cancel")
+        shadowOf(context.contentResolver).registerInputStream(
+            uri,
+            object : java.io.InputStream() {
+                override fun read(): Int {
+                    conversionThread.set(Thread.currentThread())
+                    reading.countDown()
+                    check(release.await(10, TimeUnit.SECONDS))
+                    throw java.io.IOException("Conversion interrupted")
+                }
+            },
+        )
+        shadowOf(context).setComponentNameAndServiceForBindService(
+            android.content.ComponentName(context, ConversionService::class.java),
+            service.onBind(Intent()),
+        )
+        try {
+            val statuses = mutableListOf<StatusMessage>()
+            val worker = ConversionWorker(context, directory, listOf(uri), listOf(original.name), "epub", emptyList(), onProgress = statuses::add)
+            val result = async(start = CoroutineStart.UNDISPATCHED) { worker.run() }
+            service.onStartCommand(requireNotNull(shadowOf(context).nextStartedService), 0, 1)
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue("Conversion must be reading before Cancel", reading.await(5, TimeUnit.SECONDS))
+            val connection = shadowOf(context).boundServiceConnections.single()
+            shadowOf(context).clearStartedServices()
+
+            shadowOf(service).lastForegroundNotification.actions.single().actionIntent.send()
+            val cancelIntent = requireNotNull(shadowOf(context).nextStartedService)
+            assertEquals("com.econverter.app.CANCEL_CONVERSION", cancelIntent.action)
+            service.onStartCommand(cancelIntent, 0, 2)
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+
+            assertEquals(StatusMessage(R.string.status_cancelled), statuses.last())
+            assertTrue("Client must acknowledge Cancel by terminating the worker", ShadowProcess.wasKilled(android.os.Process.myPid()))
+            assertFalse(result.isCompleted)
+            assertTrue("Files must remain until worker disconnection", partial.exists())
+
+            connection.onServiceDisconnected(android.content.ComponentName(context, ConversionService::class.java))
+            val cancelled = result.await()
+            assertEquals(StatusMessage(R.string.status_cancelled), cancelled.status)
+            assertTrue(cancelled.files.isEmpty())
+            assertFalse(directory.exists())
+            assertEquals("original", original.readText())
+            assertTrue(shadowOf(context).boundServiceConnections.isEmpty())
+            assertEquals(ConversionService::class.java.name, shadowOf(context).nextStoppedService.component?.className)
+        } finally {
+            release.countDown()
+            conversionThread.get()?.join(5_000)
+            controller.destroy()
+            directory.deleteRecursively()
+            original.delete()
+        }
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun conversionServiceStillPromotesWhenNotificationsAreDenied() {
+        val controller = Robolectric.buildService(ConversionService::class.java).create()
+        val service = controller.get()
+        val manager = service.getSystemService(android.app.NotificationManager::class.java)
+        shadowOf(manager).setNotificationsEnabled(false)
+        assertEquals(android.app.Service.START_NOT_STICKY, service.onStartCommand(Intent(), 0, 1))
+        assertNotNull(shadowOf(service).lastForegroundNotification)
+        service.updateForegroundProgress(StatusMessage(R.string.status_converting))
+        service.finishForegroundConversion(StatusMessage(R.string.status_done))
+        assertTrue(shadowOf(service).isForegroundStopped)
+        controller.destroy()
+    }
+
+    @Test
+    fun sharedBooksAcceptContentStreamsAndClipDataWithoutDuplicates() {
+        val first = Uri.parse("content://books/one")
+        val second = Uri.parse("content://books/two")
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(first, first, Uri.parse("file:///private/book.epub")))
+            clipData = android.content.ClipData.newRawUri("books", first).apply {
+                addItem(android.content.ClipData.Item(second))
+            }
+        }
+        assertEquals(listOf(first, second), intent.sharedBookUris())
+        assertEquals(listOf(first), Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, first).sharedBookUris())
+        assertTrue(Intent(Intent.ACTION_VIEW, first).sharedBookUris().isEmpty())
+        assertTrue(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "https://example.com/book.epub").sharedBookUris().isEmpty())
+        assertTrue(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, "not a URI").sharedBookUris().isEmpty())
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    fun malformedSharedStreamsDoNotHideClipData() {
+        val uri = Uri.parse("content://books/fallback")
+        for (intent in listOf(
+            Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, "invalid"),
+            Intent(Intent.ACTION_SEND_MULTIPLE).putStringArrayListExtra(Intent.EXTRA_STREAM, arrayListOf("invalid")),
+        )) {
+            intent.clipData = android.content.ClipData.newRawUri(null, uri)
+            assertEquals(listOf(uri), intent.sharedBookUris())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    fun unreadableSharedStreamsDoNotHideClipData() {
+        val uri = Uri.parse("content://books/fallback")
+        for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
+            val parcel = Parcel.obtain()
+            try {
+                Intent(action).apply {
+                    putExtra(Intent.EXTRA_STREAM, UnreadableAttachment())
+                    clipData = android.content.ClipData.newRawUri(null, uri)
+                }.writeToParcel(parcel, 0)
+                parcel.setDataPosition(0)
+                val intent = Intent.CREATOR.createFromParcel(parcel)
+                intent.setExtrasClassLoader(UnreadableAttachment::class.java.classLoader)
+                assertEquals(listOf(uri), intent.sharedBookUris())
+            } finally {
+                parcel.recycle()
+            }
+        }
+    }
+
+    @Test
+    fun coldAndWarmSharesAppendToTheActivityViewModel() = runBlocking<Unit> {
+        val first = createSharedBook("first.epub")
+        val second = createSharedBook("second.pdf")
+        val launch = Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, first)
+        val controller = Robolectric.buildActivity(MainActivity::class.java, launch).create()
+        try {
+            val activity = controller.get()
+            val vm = ViewModelProvider(activity)[ConverterViewModel::class.java]
+            awaitSelection(vm)
+            assertEquals(listOf(first), vm.inputUris)
+            assertEquals(listOf("first.epub"), vm.inputFileNames)
+            val share = Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(first, second, second))
+            controller.newIntent(share)
+            assertSame(vm, ViewModelProvider(activity)[ConverterViewModel::class.java])
+            assertSame(share, activity.intent)
+            awaitSelection(vm)
+            assertEquals(listOf(first, second), vm.inputUris)
+            assertEquals(listOf("first.epub", "second.pdf"), vm.inputFileNames)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    fun activityRecreationDoesNotReplayAClearedShare() = runBlocking<Unit> {
+        val uri = createSharedBook("cleared.epub")
+        val launch = Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uri)
+        val controller = Robolectric.buildActivity(MainActivity::class.java, launch).setup()
+        try {
+            val vm = ViewModelProvider(controller.get())[ConverterViewModel::class.java]
+            awaitSelection(vm)
+            assertEquals(listOf(uri), vm.inputUris)
+            vm.clearSelection()
+            controller.recreate()
+            assertSame(vm, ViewModelProvider(controller.get())[ConverterViewModel::class.java])
+            awaitSelection(vm)
+            assertFalse(vm.hasSelection)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun busyActivityRejectsSharesWithoutChangingSelectionOrOutputs() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val original = createSharedBook("original.epub")
+        val incoming = createSharedBook("incoming.epub")
+        val controller = Robolectric.buildActivity(MainActivity::class.java).create()
+        val vm = ViewModelProvider(controller.get())[ConverterViewModel::class.java]
+        val output = File(context.cacheDir, "pending.epub").apply { writeText("pending output") }
+        try {
+            vm.inputUris = listOf(original)
+            vm.inputFileNames = listOf("original.epub")
+            vm.outputFiles = listOf(output)
+            val status = StatusMessage(R.string.status_converting)
+            for (busyState in 0..3) {
+                vm.isConverting = busyState == 0
+                vm.isSaving = busyState == 1
+                vm.pendingSave = busyState == 2
+                if (busyState == 3) vm.addSelectedUris(context, listOf(original))
+                vm.status = status
+                controller.newIntent(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, incoming))
+                assertEquals(context.getString(R.string.share_busy), ShadowToast.getTextOfLatestToast())
+                assertEquals(listOf(original), vm.inputUris)
+                assertEquals(listOf("original.epub"), vm.inputFileNames)
+                assertEquals(listOf(output), vm.outputFiles)
+                assertEquals("pending output", output.readText())
+                assertEquals(status, vm.status)
+            }
+            awaitSelection(vm)
+            assertEquals(listOf(original), vm.inputUris)
+        } finally {
+            vm.isConverting = false
+            vm.isSaving = false
+            vm.pendingSave = false
+            controller.destroy()
+            output.delete()
+        }
+    }
+
     @Test
     fun metadataEditingRequiresOneSupportedBookAndAnIdleApp() {
         val vm = ConverterViewModel()
@@ -438,6 +707,46 @@ class ConverterViewModelTest {
     }
 
     @Test
+    fun selectionLoadingPreventsConflictingActions() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        val original = Uri.parse("content://books/original.epub")
+        val added = Uri.parse("file:///books/added.epub")
+        val vm = ConverterViewModel()
+        vm.inputUris = listOf(original)
+        vm.inputFileNames = listOf("original.epub")
+        vm.addSelectedUris(context, listOf(added))
+        try {
+            vm.clearSelection()
+            vm.removeSelectedUri(original)
+            vm.selectHistory(HistoryEntry("txt", StatusMessage(), 1, listOf(added), listOf("added.epub")))
+            vm.selectBackend(ConversionBackend.BOKO)
+            vm.addSelectedUris(context, listOf(Uri.parse("file:///books/ignored.epub")))
+            assertEquals(listOf(original), vm.inputUris)
+            assertEquals(listOf("original.epub"), vm.inputFileNames)
+            assertEquals(ConversionBackend.AUTO, vm.backend)
+            assertEquals("epub", vm.outputFormat)
+            assertFalse(vm.canConvert)
+            assertFalse(vm.canEditMetadata)
+            vm.convert(context)
+            vm.readMetadata(context, original)
+            assertFalse(vm.isConverting)
+            assertNull(vm.internalWorkDirectory)
+            assertEquals(R.string.loading_selection, vm.status.resourceId)
+        } finally {
+            awaitSelection(vm)
+        }
+        assertEquals(listOf(original, added), vm.inputUris)
+        assertTrue(vm.canConvert)
+        vm.clearSelection()
+        assertFalse(vm.hasSelection)
+        vm.addSelectedUris(context, listOf(added))
+        vm.viewModelScope.coroutineContext[Job]!!.children.forEach { it.cancel() }
+        awaitSelection(vm)
+        assertFalse(vm.isLoadingSelection)
+        assertFalse(vm.hasSelection)
+    }
+
+    @Test
     fun addingBooksWhileBusyDoesNotChangeSelectionOrStatus() {
         val context = RuntimeEnvironment.getApplication()
         val vm = ConverterViewModel()
@@ -642,6 +951,39 @@ class ConverterViewModelTest {
             batchRun.deleteRecursively()
             unsharedRun.deleteRecursively()
             outsideFile.delete()
+        }
+    }
+
+    class UnreadableAttachment : Parcelable {
+        override fun describeContents() = 0
+
+        override fun writeToParcel(destination: Parcel, flags: Int) = Unit
+
+        companion object {
+            @JvmField
+            val CREATOR = object : Parcelable.Creator<UnreadableAttachment> {
+                override fun createFromParcel(source: Parcel): UnreadableAttachment = throw BadParcelableException("Invalid attachment")
+
+                override fun newArray(size: Int): Array<UnreadableAttachment?> = arrayOfNulls(size)
+            }
+        }
+    }
+
+    private fun createSharedBook(name: String): Uri {
+        val context = RuntimeEnvironment.getApplication()
+        val file = File(context.filesDir, "conversion-runs/${UUID.randomUUID()}/$name").apply {
+            parentFile!!.mkdirs()
+            writeText("book content")
+        }
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }
+
+    private suspend fun awaitSelection(vm: ConverterViewModel) {
+        withTimeout(5_000) {
+            while (vm.viewModelScope.coroutineContext[Job]!!.children.any { !it.isCompleted }) {
+                shadowOf(android.os.Looper.getMainLooper()).idle()
+                delay(10)
+            }
         }
     }
 

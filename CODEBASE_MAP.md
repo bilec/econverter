@@ -25,10 +25,10 @@
 | [app/src/main/java/com/econverter/app/MainActivity.kt](app/src/main/java/com/econverter/app/MainActivity.kt) | Entry Activity, converter screen, and SAF file pickers. |
 | [app/src/main/java/com/econverter/app/ConverterTheme.kt](app/src/main/java/com/econverter/app/ConverterTheme.kt) | System-selected light/dark palettes and Compose theme. |
 | [app/src/main/java/com/econverter/app/ConversionOptions.kt](app/src/main/java/com/econverter/app/ConversionOptions.kt) | Conversion options, grouped fields, dropdowns, and PDF cleanup preset. |
-| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Metadata editor, Settings/About dialogs, and GitHub issue reporting. |
+| [app/src/main/java/com/econverter/app/ConverterDialogs.kt](app/src/main/java/com/econverter/app/ConverterDialogs.kt) | Metadata editor, Settings/About dialogs, third-party library credits, and GitHub issue reporting. |
 | [app/src/main/java/com/econverter/app/ConverterViewModel.kt](app/src/main/java/com/econverter/app/ConverterViewModel.kt) | State container, file input/output handling, coroutine execution for conversion. |
 | [app/src/main/java/com/econverter/app/ConversionBackend.kt](app/src/main/java/com/econverter/app/ConversionBackend.kt) | Backend descriptions and accepted input/output capabilities. |
-| [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Bound conversion process and cancellable Binder client. |
+| [app/src/main/java/com/econverter/app/ConversionService.kt](app/src/main/java/com/econverter/app/ConversionService.kt) | Foreground conversion service, bound metadata operations, and cancellable Binder client. |
 | [app/src/main/java/com/econverter/app/InstalledPythonPlatform.kt](app/src/main/java/com/econverter/app/InstalledPythonPlatform.kt) | Python startup adapter linking bootstrap modules to Android-installed native libraries. |
 | [app/src/main/assets/chaquopy_native_loader.py](app/src/main/assets/chaquopy_native_loader.py) | Chaquopy extraction hook linking native wheel entries while retaining normal resource extraction. |
 | [app/build.gradle.kts](app/build.gradle.kts) | Configures Chaquopy, the pinned Python engine, the external boko Android AAR, and generated native-library packaging/path maps. |
@@ -41,10 +41,19 @@
 ## Primary Data Flows
 
 1. **Input File Selection**:
-   User selects files via Storage Access Framework (`OpenMultipleDocuments`) → `MainActivity.kt` passes Uris to `ConverterViewModel.kt`. History retains selections for the current session; Clear all removes only the selection. Swipe a book left or right (or use its accessibility action) to remove it from the selection without deleting the source. Selection changes are disabled during conversion and saving.
+   User selects files via Storage Access Framework (`OpenMultipleDocuments`) → `MainActivity.kt` passes Uris to `ConverterViewModel.kt`. History retains selections for the current session; Clear all removes only the selection. Swipe a book left or right (or use its accessibility action) to remove it from the selection without deleting the source. Selection changes are disabled during loading, conversion, and saving.
+
+   `SEND`/`SEND_MULTIPLE` content URIs enter the idle queue through the single-task
+   activity, with deduplication and backend filtering. Activity recreation does
+   not replay the share.
 
 2. **Conversion Execution**:
    User taps Convert → `ConverterViewModel.kt` snapshots the request → `ConversionService.kt` copies inputs and runs Chaquopy in the private `:conversion` process → outputs remain in a per-run directory under app storage. Cancel stops the worker and discards all outputs from the current batch.
+
+   Runs start a non-sticky `dataSync` foreground service before binding; metadata
+   stays bound-only. Notifications expose progress, Cancel, and results. Completion
+   stops foreground operation; Android's timeout terminates the worker. Results
+   remain ViewModel-owned, without activity-finish or process-death recovery.
 
    Settings selects Auto, Calibre, or boko and filters format choices. Direct boko skips Python. Auto normalizes KFX inputs with boko, applies conversion options through Calibre, and uses boko for KFX/Markdown output via intermediate EPUBs.
 

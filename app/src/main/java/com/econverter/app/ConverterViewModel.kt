@@ -85,6 +85,8 @@ class ConverterViewModel : ViewModel() {
     var extraArgs by mutableStateOf("")
     var removeText by mutableStateOf("")
     var status by mutableStateOf(StatusMessage())
+    var isLoadingSelection by mutableStateOf(false)
+        private set
     var isConverting by mutableStateOf(false)
     var isCancelling by mutableStateOf(false)
     var isSaving by mutableStateOf(false)
@@ -105,8 +107,8 @@ class ConverterViewModel : ViewModel() {
     val inputFileName: String get() = inputFileNames.firstOrNull() ?: ""
     val metadataFileName: String get() = metadataTarget?.second.orEmpty()
     val unsupportedInputFileNames: List<String> get() = inputFileNames.filterNot(::isInputSupported)
-    val canConvert: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
-    val canEditMetadata: Boolean get() = bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && inputFileNames.any { it.substringAfterLast('.', "").lowercase() in BookMetadata.formats } && !isConverting && !isSaving && !pendingSave
+    val canConvert: Boolean get() = !isLoadingSelection && bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && unsupportedInputFileNames.isEmpty() && outputFormat in outputFormats
+    val canEditMetadata: Boolean get() = !isLoadingSelection && bookMetadata == null && hasSelection && inputUris.size == inputFileNames.size && inputFileNames.any { it.substringAfterLast('.', "").lowercase() in BookMetadata.formats } && !isConverting && !isSaving && !pendingSave
     val conversionProgress: Float?
         get() = when {
             isSaving -> null
@@ -118,7 +120,7 @@ class ConverterViewModel : ViewModel() {
         get() = status.resourceId != 0 && status.resourceId != R.string.loading_selection && !status.isError && !isConverting && !isSaving && !pendingSave && bookMetadata == null
 
     fun selectBackend(value: ConversionBackend, context: android.content.Context? = null) {
-        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
+        if (isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
         backend = value
         if (outputFormat !in outputFormats) outputFormat = EPUB
         status = StatusMessage()
@@ -133,14 +135,14 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun clearSelection() {
-        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
+        if (isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
         inputUris = emptyList()
         inputFileNames = emptyList()
         status = StatusMessage()
     }
 
     fun removeSelectedUri(uri: Uri) {
-        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
+        if (isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
         val index = inputUris.indexOf(uri)
         if (index == -1) return
         inputUris = inputUris.filterIndexed { i, _ -> i != index }
@@ -149,7 +151,7 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun selectHistory(entry: HistoryEntry) {
-        if (isConverting || isSaving || pendingSave || bookMetadata != null || entry.uris.isEmpty()) return
+        if (isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null || entry.uris.isEmpty()) return
         inputUris = entry.uris.toList()
         inputFileNames = entry.fileNames.toList()
         outputFormat = entry.outputFormat
@@ -167,15 +169,17 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun addSelectedUris(context: android.content.Context, newUris: List<Uri>) {
-        if (isConverting || isSaving || pendingSave || bookMetadata != null) return
+        if (isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
+        isLoadingSelection = true
         status = StatusMessage(R.string.loading_selection)
-        viewModelScope.launch(Dispatchers.IO) {
-            val pairs = newUris.map { uri -> uri to getFileName(context, uri) }
-
-            withContext(Dispatchers.Main) {
-                if (isConverting || isSaving || pendingSave || bookMetadata != null) return@withContext
-                val validPairs = pairs.filter { isInputSupported(it.second) }
-                val unsupportedCount = newUris.size - validPairs.size
+        viewModelScope.launch {
+            try {
+                val pairs = withContext(Dispatchers.IO) {
+                    newUris.distinct().map { uri -> uri to runCatching { getFileName(context, uri) }.getOrDefault("") }
+                }
+                if (isConverting || isSaving || pendingSave || bookMetadata != null) return@launch
+                val validPairs = pairs.filter { isInputSupported(it.second) && it.first !in inputUris }
+                val unsupportedCount = pairs.count { !isInputSupported(it.second) }
                 if (validPairs.isNotEmpty()) {
                     inputUris = inputUris + validPairs.map { it.first }
                     inputFileNames = inputFileNames + validPairs.map { it.second }
@@ -185,6 +189,8 @@ class ConverterViewModel : ViewModel() {
                     validPairs.isEmpty() && unsupportedCount > 0 -> StatusMessage(R.string.status_unsupported_selection)
                     else -> StatusMessage()
                 }
+            } finally {
+                isLoadingSelection = false
             }
         }
     }
@@ -202,7 +208,7 @@ class ConverterViewModel : ViewModel() {
     }
 
     fun convert(context: android.content.Context) {
-        if (!hasSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
+        if (!hasSelection || isLoadingSelection || isConverting || isSaving || pendingSave || bookMetadata != null) return
         if (!canConvert) {
             status = StatusMessage(R.string.status_unsupported_conversion, listOf(backend.label), isError = true)
             return

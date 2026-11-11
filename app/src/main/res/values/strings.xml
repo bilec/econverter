@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_results">Open results</string>
+    <string name="share_busy">Finish or cancel the current operation before sharing more books.</string>
+    <string name="conversion_notifications">Conversions</string>
     <string name="status_error">Error: %1$s</string>
     <string name="status_reading_metadata">Reading metadata...</string>
     <string name="status_updating_metadata">Updating metadata...</string>
@@ -82,6 +85,10 @@
     <string name="conversion_backend">Conversion backend</string>
     <string name="close">Close</string>
     <string name="about_title">About eBook Converter</string>
+    <string name="third_party_libraries">Third-party libraries</string>
+    <string name="view_license">View license</string>
+    <string name="back">Back</string>
+    <string name="no_browser">No browser available to open this link.</string>
     <string name="version_format">Version: %1$s</string>
     <string name="author">Author: Martin Bilka</string>
     <string name="license">License: GPL-3.0-only</string>

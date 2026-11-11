@@ -1,15 +1,19 @@
 package com.econverter.app
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.view.Gravity
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -21,10 +25,23 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.econverter.app.BuildConfig
 
 private const val REPOSITORY_URL = "https://github.com/bilec/econverter"
+
+private val THIRD_PARTY_LIBRARIES = listOf(
+    Triple("ebook-converter-lib", "GPL-3.0-or-later", "https://github.com/bilec/ebook-converter-lib/blob/master/LICENSE"),
+    Triple("ebook-converter", "GPL v3", "https://github.com/gryf/ebook-converter/blob/master/LICENSE"),
+    Triple("calibre", "GPL v3", "https://github.com/kovidgoyal/calibre/blob/master/LICENSE"),
+    Triple("boko", "GPL-3.0-or-later", "https://github.com/zacharydenton/boko/blob/master/LICENSE"),
+    Triple("Python", "PSF-2.0", "https://docs.python.org/3.11/license.html"),
+    Triple("Chaquopy", "MIT", "https://github.com/chaquo/chaquopy/blob/master/LICENSE.txt"),
+    Triple("pypdfium2", "Apache-2.0 / BSD-3-Clause", "https://github.com/pypdfium2-team/pypdfium2#licensing"),
+    Triple("PDFium", "BSD-3-Clause", "https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE"),
+    Triple("AndroidX / Jetpack Compose", "Apache-2.0", "https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt"),
+)
 
 @Composable
 internal fun MetadataDialog(fileName: String, original: BookMetadata, draft: BookMetadata, onChange: (BookMetadata) -> Unit, status: StatusMessage?, onApply: (BookMetadata) -> Unit, onDismiss: () -> Unit) {
@@ -125,6 +142,7 @@ internal fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (Conver
 @Composable
 internal fun AboutDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    var showLibraries by remember { mutableStateOf(false) }
     val versionName = remember {
         try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
@@ -132,15 +150,30 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
             "unknown"
         }
     }
+    if (showLibraries) {
+        ThirdPartyLibrariesDialog(onDismiss = { showLibraries = false })
+        return
+    }
     AlertDialog(
+        modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 400.dp).fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.about_title)) },
+        title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },
         text = {
             CenterDialogWindow()
-            Column {
+            Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.version_format, versionName))
                 Text(stringResource(R.string.author))
                 Text(stringResource(R.string.license))
+                HorizontalDivider(Modifier.padding(top = 8.dp))
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(role = Role.Button, onClick = { showLibraries = true }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.third_party_libraries), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
             }
         },
         confirmButton = {
@@ -155,6 +188,42 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
                 Text(stringResource(R.string.close))
             }
         },
+    )
+}
+
+@Composable
+private fun ThirdPartyLibrariesDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val viewLicense = stringResource(R.string.view_license)
+    AlertDialog(
+        modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 400.dp).fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.third_party_libraries), style = MaterialTheme.typography.titleLarge) },
+        text = {
+            CenterDialogWindow()
+            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                THIRD_PARTY_LIBRARIES.forEach { (name, license, url) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = viewLicense) {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            } catch (_: ActivityNotFoundException) {
+                                Toast.makeText(context, R.string.no_browser, Toast.LENGTH_LONG).show()
+                            }
+                        }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(name, style = MaterialTheme.typography.titleSmall)
+                            Text(license, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
     )
 }
 

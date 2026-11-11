@@ -16,6 +16,19 @@ Android app for converting e-books individually or in batches with Calibre and b
    Advanced settings (extra arguments and text removal). Closing a group keeps its values.
 3. Tap **Convert**, then **Save** to a folder or **Share** the results.
 
+You can also share one or more e-book files from another app to **eConverter**.
+Supported files are added to the queue without duplicates; finish or cancel any
+active operation or pending save before sharing more books. Text links are not
+imported. Selection controls are disabled while files are loading.
+
+Conversion continues when you press Home or switch apps. Its notification shows
+batch progress and **Cancel**. After completion, **Open results** opens the app's
+**Save** and **Share** controls.
+Android 13+ asks for notification permission when converting. Denying permission
+does not prevent conversion, but hides progress and completion notifications.
+Keep the app in Recents: finishing its activity, force-stopping it, or process
+death can interrupt conversion; interrupted jobs cannot be resumed.
+
 Each EPUB, AZW3, or MOBI has **Edit metadata**, including in a multi-book queue.
 Choose **Create edited copy**, then **Save** or **Share**; originals and the queue
 stay unchanged. Cancelling an update returns to the editor with the draft retained;
@@ -89,6 +102,9 @@ Artifacts expire after 14 days; no release is created.
 
 ## Credits
 
+**About** includes credits for the main third-party libraries and links to their
+licenses.
+
 - [ebook-converter](https://github.com/gryf/ebook-converter), packaged as
   [ebook-converter-lib](https://github.com/bilec/ebook-converter-lib).
 - [boko](https://github.com/zacharydenton/boko) by Zachary Denton, via our Android bindings.
@@ -121,5 +137,9 @@ using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" alt="Main conversion screen with a selected e-book" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" alt="Conversion backend settings" width="250" height="556" /> |
 | **Options** | **Save and Share** |
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" alt="Expanded conversion options" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" alt="Completed conversion with Save and Share actions" width="250" height="556" /> |
-| **Metadata Editor** | **Dark Mode** |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Metadata editor showing book title, authors, publisher and comments" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> |
+| **Metadata Editor** | **Share to eConverter** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Metadata editor showing book title, authors, publisher and comments" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" alt="Android share sheet offering eConverter for an e-book file" width="250" height="556" /> |
+| **Background Completion** | **About** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/7.jpg" alt="Android completion notification with an Open results button" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/8.png" alt="About dialog with version, author, license, and third-party libraries entry" width="250" height="556" /> |
+| **Third-party Libraries** | **Dark Mode** |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/9.png" alt="Third-party libraries dialog with license links" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/10.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> |

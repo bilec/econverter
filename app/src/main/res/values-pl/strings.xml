@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_results">Otwórz wyniki</string>
+    <string name="share_busy">Przed udostępnieniem kolejnych książek zakończ lub anuluj bieżącą operację.</string>
+    <string name="conversion_notifications">Konwersje</string>
     <string name="status_error">Błąd: %1$s</string>
     <string name="status_reading_metadata">Odczytywanie metadanych...</string>
     <string name="status_updating_metadata">Aktualizowanie metadanych...</string>
@@ -82,6 +85,10 @@
     <string name="conversion_backend">Backend konwersji</string>
     <string name="close">Zamknij</string>
     <string name="about_title">O programie eBook Converter</string>
+    <string name="third_party_libraries">Biblioteki innych firm</string>
+    <string name="view_license">Zobacz licencję</string>
+    <string name="back">Wstecz</string>
+    <string name="no_browser">Brak przeglądarki do otwarcia tego linku.</string>
     <string name="version_format">Wersja: %1$s</string>
     <string name="author">Autor: Martin Bilka</string>
     <string name="license">Licencja: GPL-3.0-only</string>

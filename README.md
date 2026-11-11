@@ -102,6 +102,9 @@ Artifacts expire after 14 days; no release is created.
 
 ## Credits
 
+**About** includes credits for the main third-party libraries and links to their
+licenses.
+
 - [ebook-converter](https://github.com/gryf/ebook-converter), packaged as
   [ebook-converter-lib](https://github.com/bilec/ebook-converter-lib).
 - [boko](https://github.com/zacharydenton/boko) by Zachary Denton, via our Android bindings.

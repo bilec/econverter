@@ -85,6 +85,10 @@
     <string name="conversion_backend">Conversion backend</string>
     <string name="close">Close</string>
     <string name="about_title">About eBook Converter</string>
+    <string name="third_party_libraries">Third-party libraries</string>
+    <string name="view_license">View license</string>
+    <string name="back">Back</string>
+    <string name="no_browser">No browser available to open this link.</string>
     <string name="version_format">Version: %1$s</string>
     <string name="author">Author: Martin Bilka</string>
     <string name="license">License: GPL-3.0-only</string>

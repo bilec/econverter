@@ -85,6 +85,10 @@
     <string name="conversion_backend">Backend konwersji</string>
     <string name="close">Zamknij</string>
     <string name="about_title">O programie eBook Converter</string>
+    <string name="third_party_libraries">Biblioteki innych firm</string>
+    <string name="view_license">Zobacz licencję</string>
+    <string name="back">Wstecz</string>
+    <string name="no_browser">Brak przeglądarki do otwarcia tego linku.</string>
     <string name="version_format">Wersja: %1$s</string>
     <string name="author">Autor: Martin Bilka</string>
     <string name="license">Licencja: GPL-3.0-only</string>

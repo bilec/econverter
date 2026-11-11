@@ -1,9 +1,13 @@
 package com.econverter.app
 
+import android.accessibilityservice.AccessibilityService
 import android.app.ActivityManager
+import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -22,6 +26,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -31,6 +36,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -383,6 +389,22 @@ class ConversionWorkerTest {
         automation.rootInActiveWindow.getBoundsInScreen(bounds)
         val height = context.resources.displayMetrics.heightPixels
         assertTrue("Dialog should be near screen center: $bounds", bounds.centerY() in (height * 0.4).toInt()..(height * 0.6).toInt())
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun aboutDialogShowsThirdPartyLibrariesAndReturnsToAbout() {
+        composeRule.onNodeWithContentDescription("About").performClick()
+        composeRule.onNodeWithText("Third-party libraries").performClick()
+        composeRule.onNodeWithText("ebook-converter-lib").assertIsDisplayed()
+        composeRule.onNodeWithText("boko").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Chaquopy").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("MIT").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("AndroidX / Jetpack Compose").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Back").performClick()
+        composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
+        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("About eBook Converter").assertDoesNotExist()
     }
 
     @Test
@@ -1000,6 +1022,108 @@ class ConversionWorkerTest {
             assertTrue(nextResult.status.text(context), nextResult.status.isSuccess)
             assertTrue(nextResult.files.single().isFile)
         } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun backgroundConversionNotificationReturnsToPendingResults() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        assertBackgroundConversion(notificationsEnabled = true)
+    }
+
+    @Test
+    @ConversionSmokeTest
+    fun backgroundConversionCompletesWithNotificationsDisabled() {
+        assumeTrue(Build.VERSION.SDK_INT >= 33)
+        val appOps = context.getSystemService(AppOpsManager::class.java)
+        val operation = requireNotNull(AppOpsManager.permissionToOp(android.Manifest.permission.POST_NOTIFICATIONS))
+        val previousMode = when (appOps.unsafeCheckOpRawNoThrow(operation, Process.myUid(), context.packageName)) {
+            AppOpsManager.MODE_ALLOWED -> "allow"
+            AppOpsManager.MODE_IGNORED -> "ignore"
+            AppOpsManager.MODE_ERRORED -> "deny"
+            AppOpsManager.MODE_DEFAULT -> "default"
+            AppOpsManager.MODE_FOREGROUND -> "foreground"
+            else -> error("Unexpected notification app-op mode")
+        }
+        try {
+            setNotificationAppOp("ignore")
+            assertBackgroundConversion(notificationsEnabled = false)
+        } finally {
+            setNotificationAppOp(previousMode)
+        }
+    }
+
+    private fun setNotificationAppOp(mode: String) {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("appops set ${context.packageName} POST_NOTIFICATION $mode"))
+            .bufferedReader().use { assertTrue(it.readText().isBlank()) }
+    }
+
+    private fun assertBackgroundConversion(notificationsEnabled: Boolean) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val scenario = composeRule.activityRule.scenario
+        val directory = File(context.filesDir, "background-${UUID.randomUUID()}").apply { mkdirs() }
+        val source = makeEpub(File(directory, "source.epub"), 20_000)
+        val original = source.readBytes()
+        var activeViewModel: ConverterViewModel? = null
+        try {
+            manager.cancelAll()
+            assertEquals(notificationsEnabled, manager.areNotificationsEnabled())
+            scenario.onActivity { activity ->
+                val vm = ViewModelProvider(activity)[ConverterViewModel::class.java]
+                activeViewModel = vm
+                vm.inputUris = listOf(Uri.fromFile(source))
+                vm.inputFileNames = listOf(source.name)
+                vm.outputFormat = "epub"
+                vm.convert(context)
+                assertTrue(vm.isConverting)
+                assertTrue(instrumentation.uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME))
+            }
+            val vm = requireNotNull(activeViewModel)
+            composeRule.waitUntil(10_000) { scenario.state == Lifecycle.State.CREATED }
+            assertTrue("Conversion must still be running after Home", vm.isConverting)
+            composeRule.waitUntil(90_000) { !vm.isConverting }
+            assertEquals(Lifecycle.State.CREATED, scenario.state)
+            assertTrue(vm.status.text(context), vm.status.isSuccess)
+            assertTrue(vm.pendingSave)
+            val output = vm.outputFiles.single()
+            assertTrue(output.isFile)
+            assertTrue(output.length() > 0)
+            assertArrayEquals(original, source.readBytes())
+
+            if (notificationsEnabled) {
+                composeRule.waitUntil(10_000) {
+                    manager.activeNotifications.any { entry -> entry.notification.actions?.any { it.title.toString() == context.getString(R.string.open_results) } == true }
+                }
+                val completed = manager.activeNotifications.single { entry -> entry.notification.actions?.any { it.title.toString() == context.getString(R.string.open_results) } == true }.notification
+                assertEquals(0, completed.flags and android.app.Notification.FLAG_ONGOING_EVENT)
+                completed.actions.single().actionIntent.send()
+            } else {
+                assertFalse(manager.areNotificationsEnabled())
+                assertTrue(manager.activeNotifications.isEmpty())
+                scenario.moveToState(Lifecycle.State.RESUMED)
+            }
+            composeRule.waitUntil(10_000) { scenario.state == Lifecycle.State.RESUMED }
+            scenario.onActivity { activity ->
+                assertSame(vm, ViewModelProvider(activity)[ConverterViewModel::class.java])
+                assertTrue(vm.pendingSave)
+                assertEquals(listOf(output), vm.outputFiles)
+            }
+            composeRule.onNodeWithText("Save").assertIsDisplayed().assertIsEnabled()
+            composeRule.onNodeWithText("Share").assertIsDisplayed().assertIsEnabled()
+        } finally {
+            activeViewModel?.let { vm ->
+                instrumentation.runOnMainSync { if (vm.isConverting) vm.cancelConversion() }
+                composeRule.waitUntil(10_000) { !vm.isConverting }
+                scenario.moveToState(Lifecycle.State.RESUMED)
+                scenario.onActivity { vm.discardPendingSave() }
+            }
+            manager.cancelAll()
             directory.deleteRecursively()
         }
     }

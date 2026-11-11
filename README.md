@@ -19,7 +19,7 @@ Android app for converting e-books individually or in batches with Calibre and b
 You can also share one or more e-book files from another app to **eConverter**.
 Supported files are added to the queue without duplicates; finish or cancel any
 active operation or pending save before sharing more books. Text links are not
-imported.
+imported. Selection controls are disabled while files are loading.
 
 Conversion continues when you press Home or switch apps. Its notification shows
 batch progress and **Cancel**. After completion, **Open results** opens the app's

@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
         val uris = intent.sharedBookUris()
         if (uris.isEmpty()) return
         val vm = ViewModelProvider(this)[ConverterViewModel::class.java]
-        if (vm.isConverting || vm.isSaving || vm.pendingSave || vm.bookMetadata != null) {
+        if (vm.isLoadingSelection || vm.isConverting || vm.isSaving || vm.pendingSave || vm.bookMetadata != null) {
             Toast.makeText(this, R.string.share_busy, Toast.LENGTH_LONG).show()
             return
         }
@@ -85,12 +85,16 @@ class MainActivity : ComponentActivity() {
 
 internal fun Intent.sharedBookUris(): List<Uri> {
     if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return emptyList()
-    return try {
-        val streams = if (action == Intent.ACTION_SEND) {
+    val streams = try {
+        if (action == Intent.ACTION_SEND) {
             listOfNotNull(IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java))
         } else {
-            IntentCompat.getParcelableArrayListExtra(this, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            IntentCompat.getParcelableArrayListExtra(this, Intent.EXTRA_STREAM, Uri::class.java).orEmpty().filterIsInstance<Uri>()
         }
+    } catch (_: RuntimeException) {
+        emptyList()
+    }
+    return try {
         (streams + (0 until (clipData?.itemCount ?: 0)).mapNotNull { clipData?.getItemAt(it)?.uri })
             .filter { it.scheme == "content" }.distinct()
     } catch (_: RuntimeException) {
@@ -103,7 +107,7 @@ internal fun Intent.sharedBookUris(): List<Uri> {
 fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
     val context = LocalContext.current
     val removeBookLabel = stringResource(R.string.remove_book)
-    val canEdit = !vm.isConverting && !vm.isSaving && !vm.pendingSave && vm.bookMetadata == null
+    val canEdit = !vm.isLoadingSelection && !vm.isConverting && !vm.isSaving && !vm.pendingSave && vm.bookMetadata == null
 
     LaunchedEffect(Unit) {
         vm.loadBackendPreference(context)

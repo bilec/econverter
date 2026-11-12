@@ -36,8 +36,8 @@ private val THIRD_PARTY_LIBRARIES = listOf(
     Triple("ebook-converter", "GPL v3", "https://github.com/gryf/ebook-converter/blob/master/LICENSE"),
     Triple("calibre", "GPL v3", "https://github.com/kovidgoyal/calibre/blob/master/LICENSE"),
     Triple("boko", "GPL-3.0-or-later", "https://github.com/zacharydenton/boko/blob/master/LICENSE"),
-    Triple("Python", "PSF-2.0", "https://docs.python.org/3.11/license.html"),
-    Triple("Chaquopy", "MIT", "https://github.com/chaquo/chaquopy/blob/master/LICENSE.txt"),
+    Triple("Python", "PSF-2.0", "licenses/python/LICENSE.txt"),
+    Triple("Chaquopy", "MIT", "licenses/chaquopy/LICENSE.txt"),
     Triple("pypdfium2", "Apache-2.0 / BSD-3-Clause", "https://github.com/pypdfium2-team/pypdfium2#licensing"),
     Triple("PDFium", "BSD-3-Clause", "https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE"),
     Triple("AndroidX / Jetpack Compose", "Apache-2.0", "https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt"),
@@ -143,12 +143,17 @@ internal fun BackendSettingsDialog(backend: ConversionBackend, onSelect: (Conver
 internal fun AboutDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     var showLibraries by remember { mutableStateOf(false) }
+    var showLicense by remember { mutableStateOf(false) }
     val versionName = remember {
         try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
         } catch (_: Exception) {
             "unknown"
         }
+    }
+    if (showLicense) {
+        LicenseDialog(stringResource(R.string.license), "licenses/econverter/LICENSE", onDismiss = { showLicense = false })
+        return
     }
     if (showLibraries) {
         ThirdPartyLibrariesDialog(onDismiss = { showLibraries = false })
@@ -163,8 +168,11 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
             CenterDialogWindow()
             Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.version_format, versionName))
-                Text(stringResource(R.string.author))
+                Text(stringResource(R.string.legal_notice))
                 Text(stringResource(R.string.license))
+                TextButton(onClick = { showLicense = true }) {
+                    Text(stringResource(R.string.view_license))
+                }
                 HorizontalDivider(Modifier.padding(top = 8.dp))
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -195,6 +203,11 @@ internal fun AboutDialog(onDismiss: () -> Unit) {
 private fun ThirdPartyLibrariesDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val viewLicense = stringResource(R.string.view_license)
+    var selectedLicense by remember { mutableStateOf<Pair<String, String>?>(null) }
+    selectedLicense?.let { (name, path) ->
+        LicenseDialog(name, path, onDismiss = { selectedLicense = null })
+        return
+    }
     AlertDialog(
         modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 400.dp).fillMaxWidth(),
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -203,13 +216,17 @@ private fun ThirdPartyLibrariesDialog(onDismiss: () -> Unit) {
         text = {
             CenterDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                THIRD_PARTY_LIBRARIES.forEach { (name, license, url) ->
+                THIRD_PARTY_LIBRARIES.forEach { (name, license, target) ->
                     Row(
                         Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = viewLicense) {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            } catch (_: ActivityNotFoundException) {
-                                Toast.makeText(context, R.string.no_browser, Toast.LENGTH_LONG).show()
+                            if (target.startsWith("licenses/")) {
+                                selectedLicense = name to target
+                            } else {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                                } catch (_: ActivityNotFoundException) {
+                                    Toast.makeText(context, R.string.no_browser, Toast.LENGTH_LONG).show()
+                                }
                             }
                         }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -222,6 +239,21 @@ private fun ThirdPartyLibrariesDialog(onDismiss: () -> Unit) {
                     }
                 }
             }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
+    )
+}
+
+@Composable
+private fun LicenseDialog(title: String, assetPath: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val text = remember(assetPath) { context.assets.open(assetPath).bufferedReader().use { it.readText() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            CenterDialogWindow()
+            Text(text, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
     )

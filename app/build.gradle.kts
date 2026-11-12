@@ -125,6 +125,8 @@ androidComponents {
             jniDirectory.set(nativeLibraries)
             assetsDirectory.set(nativeAssets)
             dependsOn("generate${taskSuffix}PythonMiscAssets", "generate${taskSuffix}PythonRequirementsAssets", "generate${taskSuffix}PythonSourceAssets")
+            val appLicense = rootProject.layout.projectDirectory.file("LICENSE")
+            inputs.file(appLicense)
             inputs.files(pythonAssets)
             doLast {
                 val librariesDirectory = nativeLibraries.get().asFile
@@ -133,6 +135,9 @@ androidComponents {
                 val nativeLibraryPattern = nativePythonLibraryPattern
                 librariesDirectory.deleteRecursively()
                 assetsDirectory.deleteRecursively()
+                val bundledLicense = assetsDirectory.resolve("licenses/econverter/LICENSE")
+                check(bundledLicense.parentFile.isDirectory || bundledLicense.parentFile.mkdirs())
+                appLicense.asFile.copyTo(bundledLicense)
                 for (abi in abis) {
                     val mapping = sortedMapOf<String, String>()
                     fun bundleLibrary(relativePath: String, source: InputStream) {

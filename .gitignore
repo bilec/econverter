@@ -25,6 +25,7 @@
 !/app/build.gradle.kts
 !/app/src/main/AndroidManifest.xml
 !/app/src/main/assets/chaquopy_native_loader.py
+!/app/src/main/assets/licenses/**/*.txt
 
 # buildSrc (build logic and its tests)
 !/buildSrc/build.gradle.kts

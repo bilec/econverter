@@ -92,6 +92,7 @@
     <string name="version_format">Verze: %1$s</string>
     <string name="author">Autor: Martin Bilka</string>
     <string name="license">Licence: GPL-3.0-only</string>
+    <string name="legal_notice">Copyright (C) 2026 Martin Bilka.\nTuto aplikaci smíte šířit a upravovat za podmínek GNU GPL verze 3. Je poskytována bez jakékoli záruky.</string>
     <string name="view_on_github">Zobrazit na GitHubu</string>
     <string name="input_formats_summary">Vstup: %1$s</string>
     <string name="output_formats_summary">Výstup: %1$s</string>

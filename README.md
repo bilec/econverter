@@ -100,17 +100,39 @@ without running tests or requiring deployment approval.
 Download `debug-apks-*` from the run's **Artifacts** (GitHub sign-in required).
 Artifacts expire after 14 days; no release is created.
 
-## Credits
+## Source Code and Licenses
 
-**About** includes credits for the main third-party libraries and links to their
-licenses.
+eConverter is licensed under [GPL-3.0-only](LICENSE). **About** provides legal
+notices and offline GPL, Python, and Chaquopy licenses. Other dependency
+notices ship in the APK; library credits also link to upstream licenses.
+Additional notices in `assets/licenses/` cover CPython 3.11.17's incorporated
+software, libffi 3.4.4, bzip2 1.0.8, FreeType, and odfpy 1.4.1. Runtime
+dependency versions and build patches are pinned in
+[Chaquopy's runtime recipe](https://github.com/chaquo/chaquopy/blob/17.1.0/target/python/build.sh).
 
-- [ebook-converter](https://github.com/gryf/ebook-converter), packaged as
-  [ebook-converter-lib](https://github.com/bilec/ebook-converter-lib).
-- [boko](https://github.com/zacharydenton/boko) by Zachary Denton, via our Android bindings.
-- [Python](https://www.python.org/) and [Chaquopy](https://chaquo.com/chaquopy/) for the embedded runtime.
-- [PDFium](https://pdfium.googlesource.com/pdfium/) and
-  [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) for PDF input.
+Use the **Source code** archive or tag matching your release, not the default
+branch. See [Build](#build) for app build instructions and the table below for
+dependency sources and native build recipes. The app archive alone does not
+contain external native libraries' source.
+
+| Component | Source and Build Recipes for This Revision |
+| --- | --- |
+| ebook-converter-lib 1.6.1 | [Tagged source, packaging, and dependency pins](https://github.com/bilec/ebook-converter-lib/tree/v1.6.1). |
+| boko-android 0.1.4 | [Tagged Kotlin/JNI/Rust source and Android build instructions](https://github.com/bilec/boko-bindings/tree/v0.1.4); `Cargo.toml` pins [boko's exact source revision](https://github.com/bilec/boko/tree/23fcdcedad99fc4e2fa916c904df6d02fee41fcc), and `Cargo.lock` records Rust dependencies. |
+| Python 3.11.17 / Chaquopy 17.1.0 | [CPython source](https://github.com/python/cpython/tree/v3.11.17), [runtime build scripts and patches](https://github.com/chaquo/chaquopy/tree/17.1.0/target), and [native package recipes](https://github.com/chaquo/chaquopy/tree/17.1.0/server/pypi/packages). |
+| pypdfium2 5.14.0 | [Tagged source and setup scripts](https://github.com/pypdfium2-team/pypdfium2/tree/5.14.0); [Android x86_64 repackaging recipe](https://github.com/bilec/ebook-converter-lib/blob/v1.6.1/.github/workflows/android-wheels.yml). |
+| PDFium 156.0.8076.0 | [PDFium source and dependency revisions](https://pdfium.googlesource.com/pdfium/+/refs/heads/chromium/8076/); [binary build scripts](https://github.com/bblanchon/pdfium-binaries/tree/chromium/8076). |
+
+When redistributing APKs, retain applicable license and copyright notices
+and provide access to matching Corresponding Source, including required
+dependency sources and build scripts, under GPLv3. Keep source directions
+beside binary downloads and update this table and bundled notices when
+dependencies change. The `cpython` submodule is the F-Droid host interpreter,
+not the embedded Android runtime.
+
+ebook-converter-lib packages [ebook-converter](https://github.com/gryf/ebook-converter).
+The Android boko bindings use [boko](https://github.com/zacharydenton/boko)
+by Zachary Denton.
 
 The ebook-converter-lib package's KF8/AZW3 writer (`ebook_converter.ebooks.mobi.writer8`)
 and HTML export templates (`ebook_converter/data/html_export_default*`) are ported
@@ -140,6 +162,6 @@ using the [translation template](.github/ISSUE_TEMPLATE/translation.md).
 | **Metadata Editor** | **Share to eConverter** |
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" alt="Metadata editor showing book title, authors, publisher and comments" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" alt="Android share sheet offering eConverter for an e-book file" width="250" height="556" /> |
 | **Background Completion** | **About** |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/7.jpg" alt="Android completion notification with an Open results button" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/8.png" alt="About dialog with version, author, license, and third-party libraries entry" width="250" height="556" /> |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/7.jpg" alt="Android completion notification with an Open results button" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/8.png" alt="About dialog with copyright, warranty notice, and offline license viewer" width="250" height="556" /> |
 | **Third-party Libraries** | **Dark Mode** |
 | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/9.png" alt="Third-party libraries dialog with license links" width="250" height="556" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/10.jpg" alt="Main conversion screen in dark mode" width="250" height="556" /> |

@@ -76,5 +76,9 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: app/build/outputs/apk/econverter-*.apk
+          body: |
+            ## Source Code
+            App source for this release: [source archive](https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz).
+            [Build instructions, dependency sources, and native build recipes](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md#source-code-and-licenses).
           generate_release_notes: true
           fail_on_unmatched_files: true

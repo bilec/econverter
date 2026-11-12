@@ -413,6 +413,25 @@ class ConversionWorkerTest {
 
     @Test
     @ConversionSmokeTest
+    fun licensesAreReadableOfflineAndReturnToTheirParentDialog() {
+        composeRule.onNodeWithContentDescription("About").performClick()
+        composeRule.onNodeWithText("without any warranty", substring = true).assertExists()
+        composeRule.onNodeWithText("View license").performClick()
+        composeRule.onNodeWithText("GNU GENERAL PUBLIC LICENSE", substring = true).assertExists()
+        composeRule.onNodeWithText("Back").performClick()
+        composeRule.onNodeWithText("Third-party libraries").performScrollTo().performClick()
+        for ((name, notice) in listOf("Python" to "PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2", "Chaquopy" to "Chaquo Ltd and contributors")) {
+            composeRule.onNodeWithText(name).performScrollTo().performClick()
+            composeRule.onNodeWithText(notice, substring = true).assertExists()
+            composeRule.onNodeWithText("Back").performClick()
+            composeRule.onNodeWithText("Third-party libraries").assertIsDisplayed()
+        }
+        composeRule.onNodeWithText("Back").performClick()
+        composeRule.onNodeWithText("About eBook Converter").assertIsDisplayed()
+    }
+
+    @Test
+    @ConversionSmokeTest
     fun backendSettingsControlOutputChoicesAndOptions() {
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Calibre", useUnmergedTree = true).performClick()
